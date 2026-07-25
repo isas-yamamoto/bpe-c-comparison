@@ -101,6 +101,27 @@ def checkerboard_period1_max(x, y):
     return (1 << 16) - 1 if (x + y) % 2 == 0 else 0
 
 
+def const(value):
+    # DC_EnDeCoding.c's BitDepthDC_5Bits tracks the *absolute* magnitude of
+    # the DC/LL coefficient (roughly pixel value x 8), not inter-block
+    # variation -- so unlike ac_depth's approach (a lone perturbed pixel), a
+    # small BitDepthDC needs the whole image near a small constant value.
+    def gen(x, y):
+        return value
+
+    return gen
+
+
+def negative_pixel_block(bg, block_value, block_w=8, block_h=8):
+    # A background value with one top-left block overridden -- used (as a
+    # signed image) to control DC_Min/DC_Max's sign combination in
+    # DC_EnDeCoding.c's Max_DC computation.
+    def gen(x, y):
+        return block_value if (x < block_w and y < block_h) else bg
+
+    return gen
+
+
 def write_raw_8bit(path, values):
     path.write_bytes(bytes(values))
 
@@ -241,6 +262,62 @@ def main():
             bit_depth=16,
             generator=checkerboard_period1_max,
             note="period-1 max-amplitude 16-bit checkerboard: BitDepthAC_5Bits==17 (N==5 branch)",
+        )
+    )
+
+    # --- DC bit-depth (N) boundary control: DC_EnDeCoding.c's DC entropy
+    # coder branches on N = max(BitDepthDC_5Bits - QuantizationFactorQ, 1),
+    # with the same N==2/N<=4 low-Max_k/ID_Length branches as the AC side
+    # above -- unreachable by any existing image (whose BitDepthDC lands
+    # around 12-13, giving N in the 8-10 range even under quantization).
+    # Found empirically: a near-black constant image drops BitDepthDC low
+    # enough that a modest lossy rate (which sets QuantizationFactorQ) pushes
+    # N down into 2-4. See COMPATIBILITY_REPORT.md for the search. ---
+    cases.append(
+        build_case(
+            "dc_depth_n2_64",
+            64,
+            64,
+            generator=const(1),
+            note="use with -r 0.5: constant value 1 pushes DC coding's N to 2",
+        )
+    )
+    cases.append(
+        build_case(
+            "dc_depth_n4_64",
+            64,
+            64,
+            generator=const(2),
+            note="use with -r 1.0: constant value 2 pushes DC coding's N to 4",
+        )
+    )
+
+    # --- Negative-DC Max_DC bit-depth computation: DC_EnDeCoding.c's
+    # BitDepthDC_5Bits calculation has a separate code path (and an
+    # exact-power-of-two adjustment) when the segment's dominant DC value is
+    # negative -- never reached by any unsigned or DC-positive image above.
+    # Found empirically: a signed image whose value is itself a negative
+    # power of two (so the DC coefficient's magnitude, after the wavelet's
+    # integer scaling, lands exactly on a bit-depth boundary) combined with a
+    # mixed-sign image (a small negative block against a larger positive
+    # background, forcing the "DC_Max positive but dominated by a larger
+    # negative magnitude" branch) together cover every sub-branch. ---
+    cases.append(
+        build_case(
+            "dc_negpow_64",
+            64,
+            64,
+            generator=const(-128),
+            note="use with -g 1 -r 0: constant -128 hits the exact-power-of-two Max_DC adjustment",
+        )
+    )
+    cases.append(
+        build_case(
+            "dc_mixed_sign_64",
+            64,
+            64,
+            generator=negative_pixel_block(20, -120),
+            note="use with -g 1 -r 0: one 8x8 block at -120 against a +20 background hits the remaining negative-Max_DC branches",
         )
     )
 

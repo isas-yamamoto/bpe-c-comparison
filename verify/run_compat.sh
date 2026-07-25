@@ -196,6 +196,20 @@ run_from_manifest ac_depth2_64 0 0 256 0 "_float"
 run_from_manifest ac_depth5_16bit_64 1 0 256 0 ""
 run_from_manifest ac_depth5_16bit_64 0 0 256 0 "_float"
 
+# DC bit-depth (N) boundary control, the DC-side counterpart of the AC sweep
+# above: DC_EnDeCoding.c's entropy coder has the same N==2/N<=4 low-Max_k
+# branches, unreachable by any image whose BitDepthDC lands around 12-13 (see
+# gen_vectors.py for how these specific (image, rate) combos were found).
+run_from_manifest dc_depth_n2_64 1 0.5 256 0 ""
+run_from_manifest dc_depth_n4_64 1 1.0 256 0 ""
+
+# Negative-DC Max_DC bit-depth computation (signed images): together these
+# two exercise every sub-branch of DC_EnDeCoding.c's negative-Max_DC bit-depth
+# calculation, including the exact-power-of-two adjustment -- see
+# gen_vectors.py for why these two specific images were needed.
+run_from_manifest dc_negpow_64 1 0 256 1 ""
+run_from_manifest dc_mixed_sign_64 1 0 256 1 ""
+
 # Same AC bit-depth-boundary images, rate-limited with a small segment (16
 # blocks, vs. the 64 total in these images -- 4 segments), to try to catch
 # ACBpeEncoding's/ACBpeDecoding's SegmentFull/RateReached-triggered early
