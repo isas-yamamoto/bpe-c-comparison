@@ -78,6 +78,29 @@ def noise(x, y):
     return (h ^ (h >> 16)) & 0xFF
 
 
+def make_single_bump(bx, by, base=128, bump=1):
+    # A single perturbed pixel against an otherwise flat field. Where that
+    # pixel sits controls the resulting max-AC-coefficient magnitude
+    # (BitDepthAC_5Bits) after the wavelet transform -- and thus which of
+    # ACDepthEncoder/ACDepthDecoder's N-dependent branches (AC_BitPlaneCoding.c)
+    # get exercised. Found empirically (see COMPATIBILITY_REPORT.md): an
+    # interior bump lands on BitDepthAC==2 (N==2), while a bump at the image's
+    # very last pixel lands on BitDepthAC==1 (the single-bit-plane path that
+    # bypasses ACDepthEncoder/Decoder entirely).
+    def gen(x, y):
+        return base + bump if (x, y) == (bx, by) else base
+
+    return gen
+
+
+def checkerboard_period1_max(x, y):
+    # Sharpest possible spatial frequency (period 1) at full amplitude.
+    # Combined with a 16-bit bit depth (see ac_depth5_16bit_64 below) this
+    # pushes BitDepthAC_5Bits into the 16-31 range (N==5) -- max-amplitude
+    # 8-bit content tops out around BitDepthAC~11 (N==4), never reaching N==5.
+    return (1 << 16) - 1 if (x + y) % 2 == 0 else 0
+
+
 def write_raw_8bit(path, values):
     path.write_bytes(bytes(values))
 
@@ -182,6 +205,42 @@ def main():
             32,
             bit_depth=12,
             note="exercises the explicit (non-zero) PixelBitDepth_4Bits branch",
+        )
+    )
+
+    # --- AC bit-depth (N) boundary control: AC_BitPlaneCoding.c's
+    # ACDepthEncoder/ACDepthDecoder branch on N (a bit-length-of-a-bit-length
+    # derived from BitDepthAC_5Bits), and ACBpeEncoding/ACBpeDecoding take an
+    # entirely different single-bit-plane path when BitDepthAC_5Bits==1. Both
+    # were unreachable by the existing baseline/checkerboard/noise images,
+    # which all land on N==3 or N==4 (BitDepthAC in 4-15). See
+    # COMPATIBILITY_REPORT.md for how these specific values were found. ---
+    cases.append(
+        build_case(
+            "ac_depth1_64",
+            64,
+            64,
+            generator=make_single_bump(63, 63),
+            note="single +1 bump at the last pixel: BitDepthAC_5Bits==1 (single-bit-plane AC path)",
+        )
+    )
+    cases.append(
+        build_case(
+            "ac_depth2_64",
+            64,
+            64,
+            generator=make_single_bump(10, 10),
+            note="single +1 bump at an interior pixel: BitDepthAC_5Bits==2 (N==2 branch)",
+        )
+    )
+    cases.append(
+        build_case(
+            "ac_depth5_16bit_64",
+            64,
+            64,
+            bit_depth=16,
+            generator=checkerboard_period1_max,
+            note="period-1 max-amplitude 16-bit checkerboard: BitDepthAC_5Bits==17 (N==5 branch)",
         )
     )
 

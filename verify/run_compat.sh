@@ -182,6 +182,30 @@ run_from_manifest signed16_32 0 1.0 256 1 "_float"
 run_from_manifest signed16_32 1 1.0 256 1 "_bd12" 12
 run_from_manifest signed16_32 0 1.0 256 1 "_bd12_float" 12
 
+# AC bit-depth (N) boundary control (both DWT types): AC_BitPlaneCoding.c's
+# ACDepthEncoder/ACDepthDecoder branch on N (derived from BitDepthAC_5Bits),
+# and ACBpeEncoding/ACBpeDecoding take an entirely different single-bit-plane
+# path when BitDepthAC_5Bits==1. baseline/checkerboard/noise above all land
+# on N==3 or N==4 -- these three images were built (see gen_vectors.py) to
+# specifically hit BitDepthAC_5Bits==1, ==2, and ==17 (N==1's single-bit-plane
+# path, N==2, and N==5 respectively).
+run_from_manifest ac_depth1_64 1 0 256 0 ""
+run_from_manifest ac_depth1_64 0 0 256 0 "_float"
+run_from_manifest ac_depth2_64 1 0 256 0 ""
+run_from_manifest ac_depth2_64 0 0 256 0 "_float"
+run_from_manifest ac_depth5_16bit_64 1 0 256 0 ""
+run_from_manifest ac_depth5_16bit_64 0 0 256 0 "_float"
+
+# Same AC bit-depth-boundary images, rate-limited with a small segment (16
+# blocks, vs. the 64 total in these images -- 4 segments), to try to catch
+# ACBpeEncoding's/ACBpeDecoding's SegmentFull/RateReached-triggered early
+# returns from inside the N-specific coding paths above (these paths are
+# otherwise only ever driven to completion, never truncated mid-way).
+for rate in 0.3 0.5 1.0 2.0; do
+  run_from_manifest ac_depth2_64 1 "$rate" 16 0 "_rs_t1_r${rate}"
+  run_from_manifest ac_depth5_16bit_64 1 "$rate" 16 0 "_rs_t1_r${rate}"
+done
+
 # Decode-side byte-order flip: PixelByteOrder is a per-invocation CLI flag,
 # not part of the bitstream header (header.c/main.c), so a decode can request
 # either output order regardless of what the encode side used. Every case
