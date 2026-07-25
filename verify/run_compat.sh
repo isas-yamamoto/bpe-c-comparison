@@ -281,6 +281,36 @@ for rate in 0.05 0.1 0.3 0.5 0.75 1.0 3.0; do
   run_from_manifest noise_256 0 "$rate" 64 0 "_ratesweep_ns_t0_r${rate}"
 done
 
+# Segment-size diversity: all the rate sweeps above fix segment size at 64
+# blocks. StagesDeCodingGaggles1/2/3 (StagesCodingGaggles.c) record exactly
+# where a rate-limited decode stopped (X/Y_LocationStopDecoding) at dozens of
+# distinct checkpoints scattered through the stage1/2/3 quadrant-recursion
+# tree -- which specific checkpoint gets hit depends on exactly where a
+# segment's byte budget runs out, which depends on segment size as well as
+# rate. Varying segment size itself (not just rate) turned out to reach
+# several checkpoints the rate-only sweeps above never did (raised
+# StagesCodingGaggles.c from 85.93%/81.56% to 90.74%/84.93%, see
+# COMPATIBILITY_REPORT.md §4). SEGMENT_S_MIN (global.h) is 16 blocks, so that
+# floor plus a spread up to 48 is used here; the rate list is the minimum
+# empirically confirmed to avoid BPE_RATE_ERROR at every segment size below
+# (smaller segments need a higher rate to fit the segment header at all).
+#
+# Integer DWT (-t 1) only: trying -t 0 (float) across this same grid hit the
+# known cross-compiler 1-ULP residual (§3.3) in the majority of combos (11 of
+# 20 for noise_256 alone) -- confirmed via compare_traces.py that adjust_output
+# matches exactly and the single-pixel divergence appears only after
+# post_idwt, the same signature as the already-documented residual. Rather
+# than hardcode a long exclusion list, -t 0 is simply left out of this sweep;
+# it isn't needed for StagesCodingGaggles.c's INTEGER_WAVELET-gated branches
+# anyway, which is what this sweep specifically targets.
+for img in baseline_256 checkerboard_256 noise_256; do
+  for seg in 16 20 24 32 48; do
+    for rate in 0.5 0.8 1.2 2.0; do
+      run_from_manifest "$img" 1 "$rate" "$seg" 0 "_segsweep_s${seg}_r${rate}_t1"
+    done
+  done
+done
+
 if [ "$INCLUDE_SLOW" = 1 ]; then
   echo "== running slow/optional large-segment regression case =="
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['large_segment_slow']['width'])")
