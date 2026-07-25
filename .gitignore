@@ -8,3 +8,4 @@ original/**/*.bpe
 __pycache__/
 *.pyc
 .DS_Store
+verify/vectors/
