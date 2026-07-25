@@ -182,7 +182,7 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 | bpe_encoder.c | 75.98% | 70.63% |
 | bitsIO.c | 75.00% | 73.81% |
 
-### `header.c`・`bpe_decoder.c`・AC/DC側の残存未カバー行はデッドコード／エラーパス／到達困難な打ち切りタイミングと確認
+### `header.c`・`bpe_decoder.c`・AC/DC側・`bitsIO.c`の残存未カバー行はデッドコード／エラーパス／到達困難な打ち切りタイミングと確認
 
 `gcov` の注釈出力を直接読み、実行されない行の周辺コードを確認したところ、以下はテストで踏めないのではなく **C参照実装自体がCLIからは絶対に到達できないコード（または意図的に対象外としたエラーパス、あるいは到達自体は理論上可能だが黒箱テストでは実質狙い撃ちできないタイミング依存の分岐）** だと判明した。
 
@@ -205,6 +205,13 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 - **`N > 5` を示す `ErrorMsg(BPE_DATA_ERROR)` 分岐**（AC/DC双方の `ACDepthEncoder`/`ACDepthDecoder`/DC側同等関数）: `N` は5bitヘッダフィールド `BitDepthAC_5Bits`/`BitDepthDC_5Bits`（最大31）のビット長として計算されるため、数学的に `N` は最大でも5にしかならない（`31` の2進数は5桁）。この分岐は設計上の防御的コードであり、有効な入力からは構造的に到達不能。
 - **`ACBpeEncoding`/`ACGaggleDecoding` 内の一部 `SegmentFull`/`RateReached` 早期return**（AC_BitPlaneCoding.c、計4行）: `AdjustOutPut`のX/Y停止座標（§3.5）と同種の、レート制限による打ち切りが「ちょうどその行の実行中」に起きるかというタイミング依存の分岐。セグメントサイズ16・4段階のレートによる掃引（§2.1）を追加しても踏めなかった——`AdjustOutPut`ほど分岐数は多くないため関数直接呼び出しハーネスを組む費用対効果は低いと判断し、残存ギャップとして記録するに留める。
 
+`bitsIO.c`（残り25.00%、21行中21行すべて到達不能と確認 — 追加テストでの改善余地なし）:
+
+- **`OutputCodeWord` の `CodeWord_Length` 16/24/32bit 分岐**（計13行）: `header.c` の `CodewordLength_2Bits` と同一原因。`CodewordLength_2Bits` が常に `0` にハードコードされているため `Bits->CodeWord_Length` は常に8にしかならず、16/24/32bitのコードワード出力経路は構造的に到達不能。
+- **`BitsRead` の `RateReached == TRUE` 早期return**（2行）: 全ソースを `grep` した結果、`RateReached = TRUE` と `SegmentFull = TRUE` は `bitsIO.c` 内の同一箇所（166-183行目）で必ず同時に設定され、両者のリセットも常に同時（`bpe_decoder.c` の `PtrCoding->SegmentFull = FALSE; PtrCoding->RateReached = FALSE;` が隣接する2行）。よって `RateReached == TRUE` の時点で `SegmentFull` も必ず `TRUE` であり、その手前の `SegmentFull == TRUE` チェック（138行目）が先に呼び出し元へ返すため、この分岐に到達する経路が存在しない。
+- **セグメント末尾のフィルバイト読み飛ばしループ**（2行）: `BitsOutput` 自身によるレート制限時の打ち切り（84-107行目）は、書き込み途中の値を `SegByteLimit_27Bits` のちょうどビット境界で止めるため、エンコーダが実際に書き出すバイト数は常に `SegByteLimit_27Bits` ぴったりになる。加えて `UseFill` は前述の通り常に `FALSE`（別経路の追加パディングも発生しない）。したがってデコード側でレート制限に達した時点の `CurrentTotalBytes` は既に `SegByteLimit_27Bits` と一致しており、「読み飛ばすべき残りバイト」が生じるケースが構造的に存在しない。
+- **`BitsOutput` の `length > 32` 分岐**（4行）: 全 `BitsOutput` 呼び出し箇所を確認したところ、固定長引数は最大27bit（`SegByteLimit_27Bits`）で、可変長引数（Rice風の「符号化済み先頭部」の長さ `(MappedDC/MappedAC >> min_k) + 1`）もこの参照実装がサポートする最大画素ビット深度16bitから決まる係数の実測レンジ（本レポートで16bit最大振幅市松模様を試した際も `BitDepthDC_5Bits` は19止まり、§4参照）を踏まえると32を超えることは実質的にない。理論上は`DCEntropyEncoder`のN>10時のフォールバック（`Max_k`/`ID_Length`が初期値の0のまま、208-218行目)という参照実装側の別の粗さはあるが、これはさらに稀な状況でも出力される値の量自体は増えず32bit超にはつながらない。100件超のテストケース（16bit最大振幅市松模様を含む）で一度も踏まれなかったことも状況証拠として確認済み。
+
 いずれもテストケースをどう工夫しても再現できない（手動でヘッダを改変しない限り）、本レポートの検証範囲の対象外である、または追加投資に見合わないタイミング依存の残存ギャップであるため、今後の課題からは除外する。
 
 ## 5. 総合評価
@@ -220,6 +227,7 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 - **`header.c` の残り約22%（分岐で約44%）はテストでは埋まらないデッドコードと断定した**。これ以上このファイルにテストケースを追加する意味はない。
 - **AC側のDPCMは関数レベル検証を追加し、バグなしを確認した**（§3.4）。DC側と同様の懸念は解消された。
 - **AC側の残る主要関数（`ACGaggleEncoding`/`ACGaggleDecoding`/`ACDepthEncoder`/`ACDepthDecoder`）は、AC係数振幅（`BitDepthAC_5Bits`）を狙って作った3種の画像で行79.92%→86.07%・分岐71.88%→80.73%まで伸びた**（§4）。副産物としてDC側の同種関数（`DC_EnDeCoding.c`）も行83.04%→88.60%まで伸び、`BPEBlockCoding.c`も微増した。残る主なギャップは`OptDCSelect`/`OptACSelect`が常にTRUEなため到達不能なヒューリスティック分岐（`header.c`のデッドコードと同種）と、`N>5`の防御的`ErrorMsg`（数学的に到達不能）、および`AdjustOutPut`のX/Y座標と同種のタイミング依存の早期return数行。
+- **`bitsIO.c`（残り25%）は追加調査の結果、全て確定的に到達不能と確認し、これ以上テストケースを追加しても伸びないと判断した**（§4）。`CodeWord_Length`16/24/32bit分岐は`CodewordLength_2Bits`常時0による既知のデッドコードと同一原因。`RateReached==TRUE`早期returnは全ソースgrepで`RateReached`/`SegmentFull`が常に同時に設定・リセットされることを確認し、手前の`SegmentFull`チェックで必ず先に返ることが判明。セグメント末尾のフィル読み飛ばしループは、`BitsOutput`自身の打ち切りがちょうどバイト境界に一致するため読み飛ばす対象が生じない。`length>32`分岐は16bit画素という参照実装のビット深度上限から来る係数レンジの実測（最大`BitDepthDC_5Bits`19）を根拠に、実質到達不能と判断した。
 - **カバレッジを上げる作業そのものが、それまで隠れていたRustの実バグ（デコード側`-f`の無視、§3.6）を発見する契機になった。** これは、コードカバレッジの穴を埋める行為が単なる数字の改善ではなく、試験マトリクス自体の見落とし（=Rust側のバグを隠していたパターン）を暴く実質的な検証行為でもあることを示している。
 - **総じて「互換性が証明された」と言えるのは、本レポートに記載した試験範囲について**であり、無条件に「完全互換」と言い切れる状態ではない（特にfloat DWTの1ULP残存差は既知の限界として明記する必要がある）。今後のテスト拡充（特にまだ手つかずのAC側関数）によって、この保証の範囲はさらに広げられる設計になっている（`verify/` の各スクリプトは同じパターンで拡張可能）。
 
