@@ -237,17 +237,17 @@ void DWT_(StructCodingPara *PtrCoding,
 
 			lifting_f97_2D(f97_Transed, PadRows, PadCols, 3, 0);
 
-			for(i = 0; i < PadRows; i++)			
-				for(j = 0; j < PadCols; j++)		
+			for(i = 0; i < PadRows; i++)
+				for(j = 0; j < PadCols; j++)
 				{
 					if( f97_Transed[i][j] >= 0)
 						img_wav[i][j] = (int)(f97_Transed[i][j] + 0.5);
-					else 
+					else
 						img_wav[i][j] = (int)(f97_Transed[i][j] -0.5);
 
 				}
 
-			CoeffRegroupF97(f97_Transed, 
+			CoeffRegroupF97(f97_Transed,
 				PtrCoding->ImageRows + PtrCoding->PtrHeader->Header.Part1.PadRows_3Bits,
 				PtrCoding->ImageWidth + PtrCoding->PadCols_3Bits);
 				//	free(f97_Transed);
@@ -266,9 +266,24 @@ void DWT_(StructCodingPara *PtrCoding,
 	default:
 		ErrorMsg(BPE_WAVELET_INVALID);
 	}
-	CoeffRegroup(img_wav, 
+	CoeffRegroup(img_wav,
 		PtrCoding->ImageRows + PtrCoding->PtrHeader->Header.Part1.PadRows_3Bits,
 		PtrCoding->ImageWidth +  PtrCoding->PadCols_3Bits);
+#ifdef BPE_TRACE
+	{
+		char *trace_dir = getenv("BPE_TRACE_DIR");
+		if (trace_dir) {
+			char path[512];
+			FILE *tf;
+			snprintf(path, sizeof(path), "%s/dwt_forward_c.txt", trace_dir);
+			tf = fopen(path, "w");
+			for (i = 0; i < PadRows; i++)
+				for (j = 0; j < PadCols; j++)
+					fprintf(tf, "%d\n", img_wav[i][j]);
+			fclose(tf);
+		}
+	}
+#endif
 }
 
 

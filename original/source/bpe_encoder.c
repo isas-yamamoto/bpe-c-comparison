@@ -411,6 +411,22 @@ void EncoderEngine(StructCodingPara * PtrCoding)
 	
 		BuildBlockString(TransformedImage, PtrCoding->ImageRows + PtrCoding->PtrHeader->Header.Part1.PadRows_3Bits,
 		PtrCoding->ImageWidth + PtrCoding->PadCols_3Bits, BlockString);
+#ifdef BPE_TRACE
+	{
+		char *trace_dir = getenv("BPE_TRACE_DIR");
+		if (trace_dir) {
+			char path[512];
+			FILE *tf;
+			UINT32 bi, bj;
+			snprintf(path, sizeof(path), "%s/block_string_c.txt", trace_dir);
+			tf = fopen(path, "w");
+			for (bi = 0; bi < TotalBlocks * BLOCK_SIZE; bi++)
+				for (bj = 0; bj < BLOCK_SIZE; bj++)
+					fprintf(tf, "%ld\n", BlockString[bi][bj]);
+			fclose(tf);
+		}
+	}
+#endif
 	for(i = 0; i < PtrCoding->ImageRows; i++)
 		free(TransformedImage[i]);
 	free(TransformedImage);
