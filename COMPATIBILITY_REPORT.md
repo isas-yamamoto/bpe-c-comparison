@@ -118,7 +118,26 @@ Rust側は `wrapping_sub` を使い、Cの符号なし折り返しを明示的�
 - **AC側のDPCM（`DPCM_ACMapper`/`DPCM_ACDeMapper`）は関数レベル検証が未着手**。DC側で発見したのと同種の整数幅バグが潜んでいる可能性を否定できない。DC側と同じ手法（境界値を突く系列でのベクタ生成）を適用すべき。
 - **総じて「互換性が証明された」と言えるのは、本レポートに記載した試験範囲について**であり、無条件に「完全互換」と言い切れる状態ではない。今後のテスト拡充（特にAdjustOutPutとAC側DPCM）によって、この保証の範囲は着実に広げられる設計になっている（`verify/` の各スクリプトは同じパターンで拡張可能）。
 
-## 6. 今後の課題
+## 6. 外部参照ドキュメントとの照合
+
+[oresat/libbpe の `UNL_readme_kielymods.txt`](https://github.com/oresat/libbpe/blob/master/bpe/source/UNL_readme_kielymods.txt)（2026-07-25 参照）で指摘されている C参照実装の問題点を、`original/source/*.c` の現状コードと1項目ずつ突き合わせた。この文書は本リポジトリの `original/readme_kielymods.rtf`（Aaron Kiely, 2008年6-7月）と**内容が一言一句同一**であり、`original/source/*.c` はそもそもこの文書が記述する修正が適用済みの版として本リポジトリに取り込まれている。実際にコードを読んで確認した結果は以下の通り。
+
+| # | 指摘内容 | 該当箇所 | 判定 |
+|---|---|---|---|
+| 1 | `gaggles==0`（単一ブロックの最終セグメント）で `ACGaggleEncoding`/`ACGaggleDecoding`/`DCGaggleDecoding`/`DCEncoder` が何もせず抜けてしまう | AC_BitPlaneCoding.c, DC_EnDeCoding.c | **修正済み**。4関数とも `for (i = StartIndex; i < StartIndex + gaggles; i++)` で `gaggles` を「値の個数」として一貫使用し、`gaggles==0` 用の早期returnは存在しない |
+| 2a | `DCEntropyEncoder` が section 4.3.3 の DC追加ビットプレーンを `q - WtLL3` 枚符号化してしまう（多すぎる） | DC_EnDeCoding.c:239-243 | **修正済み**。`q - max(BitDepthAC, WtLL3)` を計算している |
+| 2b | `DCDeCoding` の 4.3.3 ビットデコード処理がコメントアウトされたまま | DC_EnDeCoding.c:693-714 | **修正済み**。有効なコードとして存在（`/* --- Begin/End bug fix (Kiely) --- */` 明記） |
+| 2c | `ACBpeDecoding` 内、`ACDepthDecoder` 呼び出し**後**という誤った位置に 4.3.3 デコードのコード片が残っている | AC_BitPlaneCoding.c | **修正済み**。該当コード片は存在しない（2bの通りDCDeCoding側に移設済み） |
+| 3 | `AdjustOutPut` 内 `DeConvTwosComp` 呼び出しで `ShiftedDC + DecodingDCRemainder` に `(long int)` キャストがなく、桁あふれし得る | AdjustOutput.c:50-57 | **修正済み**。両オペランドに `(long int)` キャストあり。バグ版はコメントとしてのみ残存 |
+| 4 | `DCGaggleDecoding`/`ACGaggleDecoding` のループ変数 `i` が `short` で、2^15以上のブロック/セグメントでオーバーフロー | DC_EnDeCoding.c:262, AC_BitPlaneCoding.c:295 | **修正済み**。どちらも `long int i` |
+| 5 | DPCMマッピングの符号反転式・`DPCM_DCDeMapper` の分岐構造にバグ | DC_EnDeCoding.c（DPCM_DCMapper/DeMapper） | **修正済み**。`-(short)( ((X^Bits1)&Bits1)+1 )` 形式、`if (MappedDC > 2*theta) { if ((long int)ShiftedDC[i-1] < 0) ... }` 形式ともに適用済み。バグ版はコメントとしてのみ残存 |
+| 6 | 総ブロック数15の画像でセグメント分割の while ループ境界がずれセグフォルト | DC_EnDeCoding.c, AC_BitPlaneCoding.c（4関数） | **修正済み（別形式で）**。文書が示す `while(S_20Bits >= gaggles + GaggleStartIndex)` という文字列そのものではなく、`while(GaggleStartIndex < S_20Bits) { gaggles = min(GAGGLE_SIZE, S_20Bits - GaggleStartIndex); ... }` という、`min()` で残数を確実にキャップする形にリファクタされている。15ブロック境界を含め機能的に同じ問題を回避できている（`verify/run_compat.sh` の `blocks_15` ケースが実際にこの経路を通り PASS している） |
+| 7 | `DeConvTwosComp` が `leftmost==1` を特殊扱いし、全ゼロ画像のデコードが失敗し得る | DC_EnDeCoding.c:47 | **修正済み**。ガード条件に `\|\| (leftmost==1)` は存在しない |
+| 8 | エンディアン処理: バイトスワップが機能していない／既定値が実行環境依存になっている | bpe_encoder.c（ImageRead）, bpe_decoder.c（ImageWrite, ImageWriteFloat） | **修正済み**。3関数とも実行時に `machineendianness` を算出し `PixelByteOrder` と比較する形になっている |
+
+**結論: 8項目すべて修正済みで、コード変更は不要だった。** 唯一 #6 は文書が示す修正後の文字列と一致しないが、実装がより堅牢な形（`min()` によるキャップ）にリファクタされており、境界ケースの回避という点で機能的に同等以上。この照合によって `original/source/*.c` に対する追加のコード変更は発生しておらず、§2〜§5 の試験結果・カバレッジ評価はそのまま有効。
+
+## 7. 今後の課題
 
 1. `AdjustOutPut` のレート制限デコードを、様々な停止位置（segment_full / bitplane / stage / symbol種別の組み合わせ）で意図的に発生させるテストケースを追加し、カバレッジを引き上げる。
 2. AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に対して DC側と同様の関数レベル共有ベクタを追加する。
