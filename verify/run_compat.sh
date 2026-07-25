@@ -56,6 +56,7 @@ assert_bytes_equal() {
 run_case() {
   local name="$1" raw="$2" width="$3" height="$4" bit_depth="$5" byte_order="$6" \
         dwt_type="$7" rate="$8" segment="$9" signed="${10}" label="${11}"
+  local decode_byte_order="${12:-$byte_order}"
 
   local common_args=(-w "$width" -h "$height" -b "$bit_depth" -f "$byte_order" \
                       -t "$dwt_type" -r "$rate" -s "$segment" -g "$signed")
@@ -70,10 +71,18 @@ run_case() {
   local ok=1
   assert_bytes_equal "$label: encode .bpe" "$r_bpe" "$c_bpe" || ok=0
 
-  "$C_BIN" -d "$c_bpe" -o "$c_from_c" >/dev/null
-  "$RUST_BIN" -d "$c_bpe" -o "$r_from_c" >/dev/null
-  "$C_BIN" -d "$r_bpe" -o "$c_from_r" >/dev/null
-  "$RUST_BIN" -d "$r_bpe" -o "$r_from_r" >/dev/null
+  # PixelByteOrder is a per-invocation CLI setting, not part of the bitstream
+  # header (see original/source/header.c:91 / main.c:170) -- so the decode
+  # side's desired output byte order is independent of what encode used, and
+  # must be passed here explicitly. decode_byte_order defaults to byte_order
+  # (the pre-existing behavior); passing a flipped value exercises the
+  # PixelByteOrder != machineendianness swap branches in bpe_decoder.c's
+  # ImageWrite/ImageWriteFloat, which every case that omitted this went
+  # through the "no swap" path on (this machine is little-endian).
+  "$C_BIN" -d "$c_bpe" -o "$c_from_c" -f "$decode_byte_order" >/dev/null
+  "$RUST_BIN" -d "$c_bpe" -o "$r_from_c" -f "$decode_byte_order" >/dev/null
+  "$C_BIN" -d "$r_bpe" -o "$c_from_r" -f "$decode_byte_order" >/dev/null
+  "$RUST_BIN" -d "$r_bpe" -o "$r_from_r" -f "$decode_byte_order" >/dev/null
 
   assert_bytes_equal "$label: rust-decode(C) vs C-decode(C)" "$r_from_c" "$c_from_c" || ok=0
   assert_bytes_equal "$label: C-decode(Rust) vs C-decode(C)" "$c_from_r" "$c_from_c" || ok=0
@@ -93,16 +102,18 @@ run_case() {
 # PixelBitDepth_4Bits != 0 branch instead of the "== 0 means default 16-bit"
 # one); leave empty to use the manifest's own bit_depth.
 run_from_manifest() {
-  local case_name="$1" dwt_type="$2" rate="$3" segment="$4" signed="$5" suffix="$6" bit_depth_override="${7:-}"
-  local width height bit_depth byte_order raw
+  local case_name="$1" dwt_type="$2" rate="$3" segment="$4" signed="$5" suffix="$6" \
+        bit_depth_override="${7:-}" decode_byte_order_override="${8:-}"
+  local width height bit_depth byte_order raw decode_byte_order
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['width'])")
   height=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['height'])")
   bit_depth=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['bit_depth'])")
   byte_order=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['byte_order'])")
   [ -n "$bit_depth_override" ] && bit_depth="$bit_depth_override"
+  decode_byte_order="${decode_byte_order_override:-$byte_order}"
   raw="$TESTDATA/${case_name}.raw"
   run_case "${case_name}${suffix}" "$raw" "$width" "$height" "$bit_depth" "$byte_order" \
-           "$dwt_type" "$rate" "$segment" "$signed" "${case_name}${suffix}"
+           "$dwt_type" "$rate" "$segment" "$signed" "${case_name}${suffix}" "$decode_byte_order"
 }
 
 # rebuild manifest as name-keyed for convenient lookup
@@ -137,15 +148,21 @@ for case in blocks_15 blocks_16 blocks_17_as_18 blocks_31_as_32 blocks_32 blocks
   run_from_manifest "$case" 1 0 256 0 ""
 done
 
-# 16-bit pixels x endianness
+# 16-bit pixels x endianness x DWT type -- the float-DWT variants exercise
+# ImageWriteFloat's 16-bit branches, which were otherwise never reached
+# (only ImageWrite's integer-DWT counterpart was, via the "_t1" runs below).
 run_from_manifest pixels16_f0 1 1.0 256 0 ""
 run_from_manifest pixels16_f1 1 1.0 256 0 ""
+run_from_manifest pixels16_f0 0 1.0 256 0 "_float"
+run_from_manifest pixels16_f1 0 1.0 256 0 "_float"
 
 # non-default pixel bit depth (12-bit values in 16-bit words): -b 16 always
 # stores PixelBitDepth_4Bits as 0 ("default 16-bit", since 16 doesn't fit in
 # that 4-bit header field), so pixels16_f0/f1 above never touch the explicit
-# non-zero PixelBitDepth_4Bits branch in ImageWrite/ImageWriteFloat.
+# non-zero PixelBitDepth_4Bits branch in ImageWrite/ImageWriteFloat. Both DWT
+# types, since that branch is duplicated across ImageWrite/ImageWriteFloat.
 run_from_manifest pixels12_f0 1 1.0 256 0 ""
+run_from_manifest pixels12_f0 0 1.0 256 0 "_float"
 
 # signed pixels (8-bit, integer DWT -- the original case) and its float-DWT
 # and 16-bit counterparts, which ImageWrite's/ImageWriteFloat's signed-pixel
@@ -153,6 +170,31 @@ run_from_manifest pixels12_f0 1 1.0 256 0 ""
 run_from_manifest signed_32 1 0 256 1 ""
 run_from_manifest signed_32 0 0 256 1 "_float"
 run_from_manifest signed16_32 1 1.0 256 1 ""
+run_from_manifest signed16_32 0 1.0 256 1 "_float"
+
+# signed pixels in 16-bit words with an explicit non-zero bit depth (reusing
+# signed16_32's raw file at -b 12 instead of its default -b 16, mirroring
+# what pixels12_f0 does for unsigned pixels above): signed16_32's default -b
+# 16 stores PixelBitDepth_4Bits as 0, so the "explicit bit depth" branch of
+# ImageWrite's/ImageWriteFloat's signed 16-bit PixelMax computation
+# (`(1 << (PixelBitDepth_4Bits - 1)) - 1` vs the `==0` default of 2^15-1)
+# was otherwise never reached.
+run_from_manifest signed16_32 1 1.0 256 1 "_bd12" 12
+run_from_manifest signed16_32 0 1.0 256 1 "_bd12_float" 12
+
+# Decode-side byte-order flip: PixelByteOrder is a per-invocation CLI flag,
+# not part of the bitstream header (header.c/main.c), so a decode can request
+# either output order regardless of what the encode side used. Every case
+# above decodes with the same byte_order it encoded with, which on this
+# (little-endian) machine always lands on the "no swap needed" branch of
+# ImageWrite's/ImageWriteFloat's 16-bit paths. Flipping it here for a 16-bit
+# unsigned + signed case, both DWT types, drives the "swap needed" branch
+# instead (the two are logically independent -- decode output order isn't
+# tied to how the pixels happened to be encoded).
+run_from_manifest pixels16_f0 1 1.0 256 0 "_decodeflip" "" 1
+run_from_manifest pixels16_f0 0 1.0 256 0 "_decodeflip_float" "" 1
+run_from_manifest signed16_32 1 1.0 256 1 "_decodeflip" "" 1
+run_from_manifest signed16_32 0 1.0 256 1 "_decodeflip_float" "" 1
 
 # Rate-limited decode sweep: exercises AdjustOutPut (the rate-control/
 # truncated-decode path) across many distinct stop points. A small segment
