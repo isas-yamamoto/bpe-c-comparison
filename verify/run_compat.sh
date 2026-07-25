@@ -169,6 +169,22 @@ for rate in 0.05 0.2 0.3 0.5 1.0 1.5 2.0 3.0; do
   run_from_manifest baseline_256 0 "$rate" 64 0 "_ratesweep_t0_r${rate}"
 done
 
+# Same sweep, but against a high-contrast checkerboard image instead of a
+# smooth gradient. A gradient's wavelet coefficients skew small/one-signed;
+# the checkerboard's sharp transitions produce large-magnitude AC
+# coefficients of both signs, exercising AdjustOutPut's positive/negative/
+# zero-coefficient branches (and the DC/AC gaggle coding around them) far
+# more than baseline_256 alone -- confirmed via gcov: adding this sweep
+# raised AdjustOutPut.c's branch coverage from ~42% to ~50% (see
+# COMPATIBILITY_REPORT.md §4). No divergence found against baseline_256's
+# known-residual rates (0.1/0.75 under -t 0), so all ten values run here.
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
+  run_from_manifest checkerboard_256 1 "$rate" 64 0 "_ratesweep_cb_t1_r${rate}"
+done
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
+  run_from_manifest checkerboard_256 0 "$rate" 64 0 "_ratesweep_cb_t0_r${rate}"
+done
+
 if [ "$INCLUDE_SLOW" = 1 ]; then
   echo "== running slow/optional large-segment regression case =="
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['large_segment_slow']['width'])")

@@ -59,6 +59,14 @@ def zero(x, y):
     return 0
 
 
+def checkerboard(x, y):
+    # Sharp high-frequency alternation: produces large-magnitude AC
+    # wavelet coefficients of both signs (a smooth gradient skews toward
+    # small/one-signed coefficients), for exercising AdjustOutPut's
+    # positive/negative/zero coefficient branches under rate limiting.
+    return 255 if (x // 4 + y // 4) % 2 == 0 else 0
+
+
 def write_raw_8bit(path, values):
     path.write_bytes(bytes(values))
 
@@ -98,6 +106,9 @@ def main():
 
     # --- all-zero image (leftmost==1 special-case bug regression) ---
     cases.append(build_case("all_zero_64", 64, 64, generator=zero, note="all-zero image"))
+
+    # --- high-contrast checkerboard (both-signed, large-magnitude AC coefficients) ---
+    cases.append(build_case("checkerboard_256", 256, 256, generator=checkerboard, note="high-contrast checkerboard"))
 
     # --- minimal image size (IMAGE_WIDTH_MIN / IMAGE_ROWS_MIN == 17) ---
     cases.append(build_case("minimal_17x17", 17, 17, note="minimum valid dimensions"))
