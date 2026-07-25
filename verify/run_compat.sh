@@ -200,6 +200,21 @@ for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest checkerboard_256 0 "$rate" 64 0 "_ratesweep_cb_t0_r${rate}"
 done
 
+# Same sweep again, against deterministic pseudo-random noise: a third,
+# independent coefficient-distribution shape (no periodicity like
+# checkerboard, no monotonic structure like a gradient). Raised
+# AdjustOutPut.c further: ~50%->~58% branches (see COMPATIBILITY_REPORT.md
+# §4). Three -t 0 rate values (0.2, 1.5, 2.0) hit the same known-residual
+# 1-ULP cross-compiler float difference as baseline_256's 0.1/0.75 (§3.3) --
+# confirmed by inspection: encode bytes match exactly, decode differs by 1
+# in a single pixel. Excluded here for the same reason those are.
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
+  run_from_manifest noise_256 1 "$rate" 64 0 "_ratesweep_ns_t1_r${rate}"
+done
+for rate in 0.05 0.1 0.3 0.5 0.75 1.0 3.0; do
+  run_from_manifest noise_256 0 "$rate" 64 0 "_ratesweep_ns_t0_r${rate}"
+done
+
 if [ "$INCLUDE_SLOW" = 1 ]; then
   echo "== running slow/optional large-segment regression case =="
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['large_segment_slow']['width'])")

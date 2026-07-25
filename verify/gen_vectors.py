@@ -67,6 +67,17 @@ def checkerboard(x, y):
     return 255 if (x // 4 + y // 4) % 2 == 0 else 0
 
 
+def noise(x, y):
+    # Deterministic pseudo-random (no periodicity, unlike checkerboard, and
+    # no monotonic structure, unlike gradient), for a third, independent
+    # coefficient-distribution shape when hunting AdjustOutPut branches.
+    # Plain hash of (x, y), not `random`, so it reproduces identically on
+    # every run without a stored seed.
+    h = (x * 374761393 + y * 668265263) & 0xFFFFFFFF
+    h = (h ^ (h >> 13)) * 1274126177 & 0xFFFFFFFF
+    return (h ^ (h >> 16)) & 0xFF
+
+
 def write_raw_8bit(path, values):
     path.write_bytes(bytes(values))
 
@@ -109,6 +120,9 @@ def main():
 
     # --- high-contrast checkerboard (both-signed, large-magnitude AC coefficients) ---
     cases.append(build_case("checkerboard_256", 256, 256, generator=checkerboard, note="high-contrast checkerboard"))
+
+    # --- deterministic noise (third, independent coefficient distribution shape) ---
+    cases.append(build_case("noise_256", 256, 256, generator=noise, note="deterministic pseudo-random"))
 
     # --- minimal image size (IMAGE_WIDTH_MIN / IMAGE_ROWS_MIN == 17) ---
     cases.append(build_case("minimal_17x17", 17, 17, note="minimum valid dimensions"))
