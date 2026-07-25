@@ -87,14 +87,19 @@ run_case() {
   fi
 }
 
-# args: case_json_index dwt_type rate segment signed suffix
+# args: case_json_index dwt_type rate segment signed suffix [bit_depth_override]
+# bit_depth_override lets a case's raw file be stored at one word width (e.g.
+# 16-bit) while the CLI is told a different -b (e.g. 12, to exercise the
+# PixelBitDepth_4Bits != 0 branch instead of the "== 0 means default 16-bit"
+# one); leave empty to use the manifest's own bit_depth.
 run_from_manifest() {
-  local case_name="$1" dwt_type="$2" rate="$3" segment="$4" signed="$5" suffix="$6"
+  local case_name="$1" dwt_type="$2" rate="$3" segment="$4" signed="$5" suffix="$6" bit_depth_override="${7:-}"
   local width height bit_depth byte_order raw
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['width'])")
   height=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['height'])")
   bit_depth=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['bit_depth'])")
   byte_order=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['$case_name']['byte_order'])")
+  [ -n "$bit_depth_override" ] && bit_depth="$bit_depth_override"
   raw="$TESTDATA/${case_name}.raw"
   run_case "${case_name}${suffix}" "$raw" "$width" "$height" "$bit_depth" "$byte_order" \
            "$dwt_type" "$rate" "$segment" "$signed" "${case_name}${suffix}"
@@ -136,8 +141,18 @@ done
 run_from_manifest pixels16_f0 1 1.0 256 0 ""
 run_from_manifest pixels16_f1 1 1.0 256 0 ""
 
-# signed pixels
+# non-default pixel bit depth (12-bit values in 16-bit words): -b 16 always
+# stores PixelBitDepth_4Bits as 0 ("default 16-bit", since 16 doesn't fit in
+# that 4-bit header field), so pixels16_f0/f1 above never touch the explicit
+# non-zero PixelBitDepth_4Bits branch in ImageWrite/ImageWriteFloat.
+run_from_manifest pixels12_f0 1 1.0 256 0 ""
+
+# signed pixels (8-bit, integer DWT -- the original case) and its float-DWT
+# and 16-bit counterparts, which ImageWrite's/ImageWriteFloat's signed-pixel
+# branches were otherwise never exercised through.
 run_from_manifest signed_32 1 0 256 1 ""
+run_from_manifest signed_32 0 0 256 1 "_float"
+run_from_manifest signed16_32 1 1.0 256 1 ""
 
 # Rate-limited decode sweep: exercises AdjustOutPut (the rate-control/
 # truncated-decode path) across many distinct stop points. A small segment

@@ -145,6 +145,32 @@ def main():
     # --- signed pixels (-g 1) uses same raw data as baseline; case list in run_compat.sh adds -g ---
     cases.append(build_case("signed_32", 32, 32, note="use with -g 1"))
 
+    # --- signed 16-bit pixels: ImageWrite/ImageWriteFloat's signed-16bit
+    # branch is otherwise never exercised (signed_32 above is 8-bit only) ---
+    cases.append(
+        build_case(
+            "signed16_32",
+            32,
+            32,
+            bit_depth=16,
+            note="use with -g 1: exercises the signed 16-bit pixel path",
+        )
+    )
+
+    # --- non-power bit depth (12-bit values in 16-bit words): exercises the
+    # PixelBitDepth_4Bits != 0 branch (pixels16 above always uses the
+    # PixelBitDepth_4Bits == 0 "default 16-bit" branch, since -b 16 doesn't
+    # fit in that 4-bit header field and wraps to 0) ---
+    cases.append(
+        build_case(
+            "pixels12_f0",
+            32,
+            32,
+            bit_depth=12,
+            note="exercises the explicit (non-zero) PixelBitDepth_4Bits branch",
+        )
+    )
+
     if include_slow:
         # --- >2^15 blocks in a single segment (regression guard for the short-int overflow bug) ---
         n, block_rows, block_cols = dims_for_block_count(33000)
