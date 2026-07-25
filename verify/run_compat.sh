@@ -139,6 +139,36 @@ run_from_manifest pixels16_f1 1 1.0 256 0 ""
 # signed pixels
 run_from_manifest signed_32 1 0 256 1 ""
 
+# Rate-limited decode sweep: exercises AdjustOutPut (the rate-control/
+# truncated-decode path) across many distinct stop points. A small segment
+# size (64 blocks/segment, vs. the default 256 = whole image in one segment)
+# means one run drives several independent AdjustOutPut invocations, each of
+# which can stop at a different bit-plane / stage / symbol-type combination
+# depending on exactly where its segment's byte budget runs out; sweeping
+# the target bpp across a wide range then varies where each of those stops
+# lands, run to run. (Segment sizes smaller than 64 reject the lowest rates
+# here outright with BPE_RATE_ERROR -- the byte budget can't fit even the
+# segment header -- so 64 is the smallest size that accommodates the full
+# sweep without that unrelated failure mode getting in the way.)
+#
+# This sweep is what found the float-DWT inverse-lifting double-vs-float
+# precision bug fixed in bpe-rs's inverse_lifting97f (see
+# COMPATIBILITY_REPORT.md). Two rate values (0.1 and 0.75) still diverge by
+# a single pixel under -t 0 even after that fix: an isolated probe traced it
+# to a genuine 1-ULP difference between gcc's and rustc's float64 rounding
+# of an identical, identically-ordered expression over identical inputs --
+# not a logic bug, and not something either compiler's IEEE-754 conformance
+# obligates it to avoid. They're excluded from the -t 0 loop below (still
+# run under -t 1, where integer arithmetic has no such ambiguity) rather
+# than left in to redden CI on a non-actionable, deterministic-but-uncontrollable
+# difference; see COMPATIBILITY_REPORT.md for the full writeup.
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
+  run_from_manifest baseline_256 1 "$rate" 64 0 "_ratesweep_t1_r${rate}"
+done
+for rate in 0.05 0.2 0.3 0.5 1.0 1.5 2.0 3.0; do
+  run_from_manifest baseline_256 0 "$rate" 64 0 "_ratesweep_t0_r${rate}"
+done
+
 if [ "$INCLUDE_SLOW" = 1 ]; then
   echo "== running slow/optional large-segment regression case =="
   width=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['cases_by_name']['large_segment_slow']['width'])")

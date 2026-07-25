@@ -376,10 +376,43 @@ short ImageWriteFloat(StructCodingPara *StrPtr,
 
 void DecodingOutputFloating(StructCodingPara *PtrCP,
 					float **imgout_floatingcase)
-{	
+{
+#ifdef BPE_TRACE
+	{
+		char *trace_dir = getenv("BPE_TRACE_DIR");
+		if (trace_dir) {
+			char path[512];
+			FILE *tf;
+			UINT32 ti, tj;
+			UINT32 cols = PtrCP->ImageWidth + PtrCP->PadCols_3Bits;
+			snprintf(path, sizeof(path), "%s/reassembled_c.txt", trace_dir);
+			tf = fopen(path, "w");
+			for (ti = 0; ti < PtrCP->ImageRows; ti++)
+				for (tj = 0; tj < cols; tj++)
+					fprintf(tf, "%.9e\n", imgout_floatingcase[ti][tj]);
+			fclose(tf);
+		}
+	}
+#endif
 	CoeffDegroupFloating(imgout_floatingcase, PtrCP->ImageRows, PtrCP->ImageWidth + PtrCP->PadCols_3Bits );
 
-	DWT_ReverseFloating(imgout_floatingcase, PtrCP); 
+	DWT_ReverseFloating(imgout_floatingcase, PtrCP);
+#ifdef BPE_TRACE
+	{
+		char *trace_dir = getenv("BPE_TRACE_DIR");
+		if (trace_dir) {
+			char path[512];
+			FILE *tf;
+			UINT32 ti, tj;
+			snprintf(path, sizeof(path), "%s/post_idwt_c.txt", trace_dir);
+			tf = fopen(path, "w");
+			for (ti = 0; ti < PtrCP->ImageRows; ti++)
+				for (tj = 0; tj < PtrCP->ImageWidth; tj++)
+					fprintf(tf, "%.9e\n", imgout_floatingcase[ti][tj]);
+			fclose(tf);
+		}
+	}
+#endif
 
 	if (PtrCP->PtrHeader->Header.Part4.TransposeImg == TRANSPOSE)
 	{
@@ -461,8 +494,21 @@ void DecoderEngine(StructCodingPara * PtrCoding)
 	StructFreBlockString *tempStr = NULL;
 
 	
+#ifdef BPE_TRACE
+	{
+		char *trace_dir = getenv("BPE_TRACE_DIR");
+		if (trace_dir) {
+			char path[512];
+			FILE *tf;
+			snprintf(path, sizeof(path), "%s/adjust_output_c.txt", trace_dir);
+			tf = fopen(path, "w"); /* truncate: each segment's dump below appends */
+			if (tf) fclose(tf);
+		}
+	}
+#endif
+
 	PtrCoding->Bits = (BitStream *)calloc(sizeof(BitStream), 1);
-	
+
 	if((PtrCoding->Bits->F_Bits = fopen(PtrCoding->InputFile, "rb")) == NULL)  // default name
 		ErrorMsg(BPE_FILE_ERROR);
 
@@ -498,6 +544,23 @@ void DecoderEngine(StructCodingPara * PtrCoding)
 		DCDeCoding(PtrCoding, StrFreBlockString, BlockCodingInfo);
 		ACBpeDecoding(PtrCoding, BlockCodingInfo) ;	// This means the decoding process stops before segment limit. 
 		AdjustOutPut(PtrCoding, BlockCodingInfo);
+#ifdef BPE_TRACE
+		{
+			char *trace_dir = getenv("BPE_TRACE_DIR");
+			if (trace_dir) {
+				char path[512];
+				FILE *tf;
+				UINT32 bi, bm, bn;
+				snprintf(path, sizeof(path), "%s/adjust_output_c.txt", trace_dir);
+				tf = fopen(path, "a");
+				for (bi = 0; bi < PtrCoding->PtrHeader->Header.Part3.S_20Bits; bi++)
+					for (bm = 0; bm < 8; bm++)
+						for (bn = 0; bn < 8; bn++)
+							fprintf(tf, "%.9e\n", BlockCodingInfo[bi].PtrBlockAddressFloating[bm][bn]);
+				fclose(tf);
+			}
+		}
+#endif
 
 	//	TempCoeffOutput(fdc, fac, BlockCodingInfo, PtrCoding);
     	
