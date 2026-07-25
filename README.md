@@ -2,6 +2,8 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder の C 参照実装、Aaron Kiely 氏によるバグ修正版）と、`bpe-rs/`（その Rust 移植版、[isas-yamamoto/bpe-rs](https://github.com/isas-yamamoto/bpe-rs)）が**完全に互換**であることを実証・継続検証するためのリポジトリ。
 
+検証観点・試験結果・カバレッジ評価の詳細は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** を参照。
+
 ## 構成
 
 ```
@@ -46,9 +48,7 @@ verify/run_unit_vectors.py
 
 ## これまでに見つかった実際の不一致
 
-- **float DWT の丸め誤差**（bpe-rs コミット `7f461c3`、ローカルのみ・未push）: C参照実装の `(int)(v + 0.5)` は `0.5` が `double` リテラルであるため加算が倍精度で行われるが、Rust 側は単精度で加算していた。値の小数部が 0.5 の1ULP以内に来る稀なケースでのみ丸め結果が分岐する。`verify/run_compat.sh` の `-t 0` ケースで発見・修正済み。
-
-- **DPCM DC マッピングの整数幅バグ2件**（bpe-rs コミット `8b9cb92`、ローカルのみ・未push）: DC 深度 N=16 のときのみ発現する2つの不一致を `verify/run_unit_vectors.py` の DPCM ベクタで発見。(1) `-(short)(...)`: C は負値化の前に16bit `short` へ縮小するため、中間値がちょうど 32768 になる場合（N=16でブロックの生値の最上位ビットが立っている時）に `short` キャストが -32768 に折り返り、符号が反転した +32768 になる。(2) `theta = min(ShiftedDC - X_Min, X_Max - ShiftedDC)`: `ShiftedDC`/`X_Max` は C では符号なし `DWORD32` なので、(1)によって `ShiftedDC` が `[X_Min,X_Max]` の範囲外に出ると引き算が符号なしで折り返り、負値の代わりに巨大な値になる。C の `min()` はその巨大値で比較してしまう。どちらも `verify/run_compat.sh` の合成テスト画像では踏まなかった境界値で、関数レベルベクタで初めて発見された。
+float DWT の丸め誤差、DPCM DC マッピングの整数幅バグ2件を発見・修正済み。詳細な原因分析は [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md) の「発見した不一致とその対応」を参照。
 
 ## 更なる詳細
 
