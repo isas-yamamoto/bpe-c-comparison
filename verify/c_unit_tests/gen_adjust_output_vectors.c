@@ -31,7 +31,7 @@
  * arrays for all 3 blocks.
  *
  * Output is plain text, one line per combo:
- *   <dwt_type> <stoppedstage> <b_dc_case> <x_loc> <y_loc> <int_csv> <float_csv>
+ *   <dwt_type> <stoppedstage> <b_dc_case> <x_loc> <y_loc> <variant> <int_csv> <float_csv>
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,19 +46,36 @@ extern void AdjustOutPut(StructCodingPara *PtrCoding, BitPlaneBits *BlockCodingI
 /* Deterministic sign/magnitude pattern: varies by (block, m, n) so int and
  * float copies of the same cell can independently be positive, negative,
  * or (occasionally) zero. (0,0) is always the DC cell AdjustOutPut skips
- * via its "continue" guard, so its value doesn't matter for this function. */
-static long int_val(int block, int m, int n) {
+ * via its "continue" guard, so its value doesn't matter for this function.
+ *
+ * `variant` flips the sign pattern (and, for variant 2/3, shifts the phase)
+ * so a (stoppedstage, X/Y) combination whose relevant cell happens to be
+ * one fixed sign under the base pattern gets a chance at the opposite sign
+ * too: AdjustOutPut's refinement/beta arithmetic has many
+ * `if (coeff > 0) ... else if (coeff < 0) ...` pairs, and the base pattern
+ * alone left ~95 such branches (one side of the pair) never taken -- found
+ * via gcov after the structural (stage x X/Y) sweep alone plateaued at
+ * 95.70%/81.06% for this file. See COMPATIBILITY_REPORT.md. */
+static long int_val(int block, int m, int n, int variant) {
     int v = (block * 7 + m * 3 + n * 5) % 11 - 5; /* range roughly -5..5 */
+    if (variant & 1)
+        v = -v;
+    if (variant & 2)
+        v += (block * 3 + m * 11 + n * 7) % 7 - 3;
     return (long)v;
 }
-static float float_val(int block, int m, int n) {
+static float float_val(int block, int m, int n, int variant) {
     /* Different phase from int_val so some cells have opposite sign / one
      * is zero while the other isn't. */
     int v = (block * 5 + m * 7 + n * 2) % 9 - 4;
+    if (variant & 1)
+        v = -v;
+    if (variant & 2)
+        v += (block * 2 + m * 5 + n * 13) % 7 - 3;
     return (float)v;
 }
 
-static void run_case(FILE *out, int dwt_type, int stoppedstage, int b_dc_case, int x_loc, int y_loc) {
+static void run_case(FILE *out, int dwt_type, int stoppedstage, int b_dc_case, int x_loc, int y_loc, int variant) {
     HeaderStruct header;
     memset(&header, 0, sizeof(header));
     header.Header.Part1.BitDepthDC_5Bits = 8;
@@ -69,8 +86,12 @@ static void run_case(FILE *out, int dwt_type, int stoppedstage, int b_dc_case, i
     memset(&coding, 0, sizeof(coding));
     coding.PtrHeader = &header;
     coding.RateReached = TRUE;
-    coding.QuantizationFactorQ = (b_dc_case == 0) ? 0 : 5;
-    coding.DecodingStopLocations.BitPlaneStopDecoding = (b_dc_case == 0) ? 0 : 3;
+    /* b_dc_case 2 makes BitPlaneStopDecoding > QuantizationFactorQ (5 > 2),
+     * the only way to reach the `b_DC = QuantizationFactorQ` else-branch a
+     * few lines into AdjustOutPut -- cases 0/1 both keep
+     * BitPlaneStopDecoding <= QuantizationFactorQ. */
+    coding.QuantizationFactorQ = (b_dc_case == 0) ? 0 : (b_dc_case == 1) ? 5 : 2;
+    coding.DecodingStopLocations.BitPlaneStopDecoding = (b_dc_case == 0) ? 0 : (b_dc_case == 1) ? 3 : 5;
     coding.DecodingStopLocations.BlockNoStopDecoding = BLOCK_NO;
     coding.DecodingStopLocations.stoppedstage = (unsigned char)stoppedstage;
     coding.DecodingStopLocations.X_LocationStopDecoding = (char)x_loc;
@@ -94,15 +115,15 @@ static void run_case(FILE *out, int dwt_type, int stoppedstage, int b_dc_case, i
         blocks[b].DecodingDCRemainder = 0.0f;
         for (int m = 0; m < BLOCK_SIZE; m++) {
             for (int n = 0; n < BLOCK_SIZE; n++) {
-                int_rows[b * BLOCK_SIZE + m][n] = int_val(b, m, n);
-                float_rows[b * BLOCK_SIZE + m][n] = float_val(b, m, n);
+                int_rows[b * BLOCK_SIZE + m][n] = int_val(b, m, n, variant);
+                float_rows[b * BLOCK_SIZE + m][n] = float_val(b, m, n, variant);
             }
         }
     }
 
     AdjustOutPut(&coding, blocks);
 
-    fprintf(out, "%d %d %d %d %d ", dwt_type, stoppedstage, b_dc_case, x_loc, y_loc);
+    fprintf(out, "%d %d %d %d %d %d ", dwt_type, stoppedstage, b_dc_case, x_loc, y_loc, variant);
     for (int b = 0; b < TOTAL_BLOCKS; b++)
         for (int m = 0; m < BLOCK_SIZE; m++)
             for (int n = 0; n < BLOCK_SIZE; n++) {
@@ -138,10 +159,12 @@ int main(int argc, char **argv) {
     int dwt_types[] = {INTEGER_WAVELET, FLOAT_WAVELET};
     for (size_t d = 0; d < 2; d++) {
         for (int stage = 1; stage <= 4; stage++) {
-            for (int b_dc = 0; b_dc < 2; b_dc++) {
+            for (int b_dc = 0; b_dc < 3; b_dc++) {
                 for (int x = 0; x < BLOCK_SIZE; x++) {
                     for (int y = 0; y < BLOCK_SIZE; y++) {
-                        run_case(out, dwt_types[d], stage, b_dc, x, y);
+                        for (int variant = 0; variant < 4; variant++) {
+                            run_case(out, dwt_types[d], stage, b_dc, x, y, variant);
+                        }
                     }
                 }
             }
