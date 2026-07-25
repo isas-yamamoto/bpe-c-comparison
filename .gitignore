@@ -1,0 +1,10 @@
+target/
+testdata/
+*.o
+original/source/bpe
+original/source/bpe_trace
+original/**/*.raw
+original/**/*.bpe
+__pycache__/
+*.pyc
+.DS_Store
