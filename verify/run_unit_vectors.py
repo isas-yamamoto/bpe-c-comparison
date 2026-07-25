@@ -42,6 +42,15 @@ DC_ENDECODING_OBJS = [
     "ricecoding.c",
 ]
 PATTERN_OBJS = ["PatternCoding.c", "errorhandle.c", "bitsIO.c", "ricecoding.c", "StagesCodingGaggles.c"]
+AC_BITPLANE_OBJS = [
+    "AC_BitPlaneCoding.c",
+    "errorhandle.c",
+    "bitsIO.c",
+    "ricecoding.c",
+    "StagesCodingGaggles.c",
+    "PatternCoding.c",
+    "BPEBlockCoding.c",
+]
 
 
 def build_and_run(gen_name, extra_sources, out_name):
@@ -62,6 +71,7 @@ def main():
     build_and_run("gen_twoscomp_vectors", DC_ENDECODING_OBJS, "twoscomp_vectors.txt")
     build_and_run("gen_dpcm_vectors", DC_ENDECODING_OBJS, "dpcm_vectors.txt")
     build_and_run("gen_pattern_vectors", PATTERN_OBJS, "pattern_vectors.txt")
+    build_and_run("gen_ac_dpcm_vectors", AC_BITPLANE_OBJS, "ac_dpcm_vectors.txt")
 
     print("== running bpe-rs shared-vector tests ==")
     result = subprocess.run(
