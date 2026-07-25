@@ -1,0 +1,63 @@
+name: C/Rust compatibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Weekly run of the slow large-segment regression case (Monday 03:00 UTC).
+    - cron: '0 3 * * 1'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  compat:
+    name: byte-compat matrix + function-level vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bpe-rs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: full-pipeline byte-compatibility matrix
+        run: verify/run_compat.sh
+
+      - name: function-level shared vectors (Rice, two's-complement)
+        run: verify/run_unit_vectors.py
+
+      - name: upload trace artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-failure-testdata
+          path: testdata/
+          retention-days: 7
+
+  large-segment-regression:
+    name: large-segment regression (slow, weekly/manual only)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bpe-rs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: byte-compatibility matrix including >2^15-blocks-per-segment case
+        run: verify/run_compat.sh --include-slow
