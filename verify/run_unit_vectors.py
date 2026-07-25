@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 """Function-level shared-vector check: builds the C reference's individual
-coding primitives (Rice coding, two's-complement conversion, DPCM DC
-mapping, pattern mapping) as standalone programs linked against the real
-original/source object files, has them generate verify/vectors/*.txt, then
-runs bpe-rs's own test suite -- which has inline tests (in src/rice.rs,
-src/dc/twos_comp.rs, src/dc/dpcm.rs, src/pattern/mapping.rs) that read
-those same files and assert their own encode/decode of the identical
-input sequence is byte-exact against what the C reference produced.
+coding primitives (Rice coding, two's-complement conversion, DPCM DC/AC
+mapping, pattern mapping, AdjustOutPut) as standalone programs linked
+against the real original/source object files, has them generate
+verify/vectors/*.txt, then runs bpe-rs's own test suite -- which has
+inline tests (in src/rice.rs, src/dc/twos_comp.rs, src/dc/dpcm.rs,
+src/pattern/mapping.rs, src/ac/depth.rs, src/adjust.rs) that read those
+same files and assert their own encode/decode of the identical input is
+byte-exact against what the C reference produced.
 
 This is deliberately function-level, not full-pipeline: it exercises every
 representable value for each (bit_length, option) Rice combo, every
-two's-complement width, every (sym_len, type) pattern-mapping combo, and
-several theta-boundary-stressing DPCM sequences -- independent of whatever
-values a synthetic test image happens to produce through the full
-encode/decode pipeline. The Rice check additionally cross-decodes: it
-feeds the C encoder's own output bytes into Rust's decoder, not just
-compares Rust's encode output to C's.
+two's-complement width, every (sym_len, type) pattern-mapping combo,
+several theta-boundary-stressing DPCM sequences, and (for AdjustOutPut,
+the largest and by far the least full-pipeline-coverable function in the
+codebase) every combination of DWTType x stoppedstage x b_DC-branch x
+the full 8x8 X/Y_LocationStopDecoding sweep, calling AdjustOutPut/
+adjust_output directly rather than hoping a rate-limited decode's byte
+boundary happens to land on a given stop location. The Rice check
+additionally cross-decodes: it feeds the C encoder's own output bytes
+into Rust's decoder, not just compares Rust's encode output to C's.
 
 Usage: verify/run_unit_vectors.py
 """
@@ -51,6 +55,18 @@ AC_BITPLANE_OBJS = [
     "PatternCoding.c",
     "BPEBlockCoding.c",
 ]
+ADJUST_OUTPUT_OBJS = [
+    "AdjustOutput.c",
+    "DC_EnDeCoding.c",
+    "errorhandle.c",
+    "header.c",
+    "waveletbpe.c",
+    "lifting_97M.c",
+    "lifting_97f.c",
+    "CoeffGroup.c",
+    "bitsIO.c",
+    "ricecoding.c",
+]
 
 
 def build_and_run(gen_name, extra_sources, out_name):
@@ -72,6 +88,7 @@ def main():
     build_and_run("gen_dpcm_vectors", DC_ENDECODING_OBJS, "dpcm_vectors.txt")
     build_and_run("gen_pattern_vectors", PATTERN_OBJS, "pattern_vectors.txt")
     build_and_run("gen_ac_dpcm_vectors", AC_BITPLANE_OBJS, "ac_dpcm_vectors.txt")
+    build_and_run("gen_adjust_output_vectors", ADJUST_OUTPUT_OBJS, "adjust_output_vectors.txt")
 
     print("== running bpe-rs shared-vector tests ==")
     result = subprocess.run(
