@@ -224,6 +224,19 @@ run_from_manifest dc_mixed_sign_64 1 0 256 1 ""
 # reaches -- see gen_vectors.py's sparse_bump_per_block.
 run_from_manifest dc_qprime_lo_64 1 0 256 0 ""
 
+# Pixel-value clamp boundaries in bpe_decoder.c's ImageWrite/ImageWriteFloat
+# (float DWT reconstruction of a constant image at the representable extreme
+# occasionally lands a hair outside the valid range due to float DWT's known
+# 1-ULP-scale rounding, see §3.3 -- the only way to reach these defensive
+# clamps; integer DWT never needs them).
+run_from_manifest signed8_max_64 0 0 256 1 ""
+run_from_manifest signed8_min_64 0 0 256 1 ""
+run_from_manifest unsigned16_max_64 0 0 256 0 "" "" 1
+run_from_manifest signed16_max_64 0 0 256 1 "_f0"
+run_from_manifest signed16_max_64 0 0 256 1 "_f1" "" 1
+run_from_manifest signed16_min_64 0 0 256 1 "_f0"
+run_from_manifest signed16_min_64 0 0 256 1 "_f1" "" 1
+
 # Same AC bit-depth-boundary images, rate-limited with a small segment (16
 # blocks, vs. the 64 total in these images -- 4 segments), to try to catch
 # ACBpeEncoding's/ACBpeDecoding's SegmentFull/RateReached-triggered early

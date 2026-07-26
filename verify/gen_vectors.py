@@ -348,6 +348,46 @@ def main():
         )
     )
 
+    # --- Pixel-value clamp boundaries in bpe_decoder.c's ImageWrite/ImageWriteFloat:
+    # a constant image at the representable extreme (127/-128 for signed 8-bit,
+    # 65535 for unsigned 16-bit, 32767/-32768 for signed 16-bit), decoded via
+    # float DWT, occasionally reconstructs a hair outside the valid range due
+    # to the float DWT's known 1-ULP-scale rounding (see COMPATIBILITY_REPORT.md
+    # §3.3) -- the only way to reach these defensive clamps. Integer DWT
+    # reconstructs exactly and never needs them. ---
+    cases.append(build_case("signed8_max_64", 64, 64, generator=const(127), note="use with -g 1 -t 0 -r 0: signed 8-bit max"))
+    cases.append(build_case("signed8_min_64", 64, 64, generator=const(128), note="use with -g 1 -t 0 -r 0: signed 8-bit min (-128, stored as raw byte 128)"))
+    cases.append(
+        build_case(
+            "unsigned16_max_64",
+            64,
+            64,
+            bit_depth=16,
+            generator=const(65535),
+            note="use with -g 0 -t 0 -r 0, decode with a flipped byte order (-f) to hit the swap branch: unsigned 16-bit max",
+        )
+    )
+    cases.append(
+        build_case(
+            "signed16_max_64",
+            64,
+            64,
+            bit_depth=16,
+            generator=const(32767),
+            note="use with -g 1 -t 0 -r 0, both decode byte orders: signed 16-bit max",
+        )
+    )
+    cases.append(
+        build_case(
+            "signed16_min_64",
+            64,
+            64,
+            bit_depth=16,
+            generator=const(-32768 & 0xFFFF),
+            note="use with -g 1 -t 0 -r 0, both decode byte orders: signed 16-bit min",
+        )
+    )
+
     if include_slow:
         # --- >2^15 blocks in a single segment (regression guard for the short-int overflow bug) ---
         n, block_rows, block_cols = dims_for_block_count(33000)
