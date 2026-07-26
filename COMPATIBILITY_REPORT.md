@@ -2,7 +2,7 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder、Aaron Kiely 氏によるバグ修正版 C 参照実装）と `bpe-rs/`（その Rust 移植版）が互換であることを、どのような観点で・どう試験し・その結果何が分かったかをまとめる。試験ハーネスは `verify/` に、実行方法は [README.md](README.md) に記載している。
 
-作成時点のコミット: 本リポジトリ `cef74ca` 以降 / bpe-rs `f772ac1`（bpe-rs 側はローカルのみ・未 push）。
+作成時点のコミット: 本リポジトリ `9a86dda` 以降 / bpe-rs `e7344b6`（bpe-rs 側はローカルのみ・未 push）。
 
 ## 1. 検証観点
 
@@ -44,7 +44,7 @@
 | dc_depth_n2 / dc_depth_n4 / dc_negpow / dc_mixed_sign（4ケース） | DC係数の実効ビット深度（`N = BitDepthDC_5Bits − QuantizationFactorQ`）とMax_DCの符号を狙って作った64×64画像4種（ほぼ真っ黒な定数値1・2、符号付きの2のべき乗負数-128、背景+20に1ブロックだけ-120）。`DCEntropyEncoder`/`Decoder`のN==2/N<=4分岐と、`Max_DC`が負の場合のビット深度計算（2のべき乗ちょうどの補正含む）は通常の画像では一切踏めていなかった |
 | セグメントサイズの多様化掃引（60ケース、整数DWTのみ） | baseline/checkerboard/noise の256×256画像 × セグメントサイズ5段階（16, 20, 24, 32, 48）× レート4段階（0.5, 0.8, 1.2, 2.0）。`StagesDeCodingGaggles1/2/3`（StagesCodingGaggles.c）がレート制限の停止位置（`X/Y_LocationStopDecoding`）を記録する数十箇所のチェックポイントは、セグメントサイズ64固定のレート掃引だけでは大半しか踏めていなかった。float DWT（`-t 0`）も同じ格子で試したが、既知の1ULP残存差（§3.3）に高頻度でヒットしたため（noise_256だけで20combo中11件）、この掃引からは除外した（§4参照） |
 
-**結果: 161/161 PASS**（2026-07-26 時点、デコード側バイト順反転ケース追加により初回は12件FAIL — §3.7参照）。
+**結果: 165/165 PASS**（2026-07-26 時点、デコード側バイト順反転ケース追加時に初回は12件FAIL — §3.7参照）。
 
 ### 2.2 関数レベルの全数検証（`verify/run_unit_vectors.py`）
 
@@ -102,7 +102,7 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 
 **結果: 1024/1024ケース、全て一致。** 全パイプライン試験では到達不能だった停止座標の細部まで含め、`AdjustOutPut`/`adjust_output` に不一致は確認されなかった。
 
-### 3.6 `AdjustOutPut` 直接呼び出しの値多様化（bug なし、bpe-rs コミット後述）
+### 3.6 `AdjustOutPut` 直接呼び出しの値多様化（bug なし、bpe-rs コミット `e7344b6`）
 
 §3.5の1024ケースは「どのDWTType×stoppedstage×X/Y座標を通るか」という**構造的な**網羅は完全だったが、`AdjustOutput.c`のカバレッジは97.35%止まりで95行が未実行のままだった（§4）。中身を調べると、95行の**ほぼ全て**が `if(coeff > 0) coeff += X; else if(coeff < 0) coeff -= X;` という符号依存の分岐対のうち片側だった。原因は、§3.5のジェネレータが使う `int_val`/`float_val`（ブロック内の(block,m,n)から決定論的にハッシュ生成する値）が、ある特定の構造的パス（stoppedstage×X/Y座標の組み合わせ）に対応する具体的なセル位置では**常に同じ符号**の値しか生成していなかったこと——構造は1024通り全て試しても、そのセルの値の符号というもう1つの次元は固定されたままだった。
 
@@ -124,7 +124,7 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 
 原因調査の結果: `bpe-rs/src/main.rs` はCLIの `-f` を常にローカル変数へパースするが、それを `CodingPara.pixel_byte_order` に反映していたのは**エンコード分岐のみ**であり、デコード分岐では代入されずに握り潰されていた。`image_write`/`image_write_float`（`src/image_io.rs`）自体のスワップ判定ロジックはC参照実装を正しく移植済みだったが、`pixel_byte_order` が常に構造体のデフォルト値`0`のままだったため、デコード時に何を`-f`指定しても常に「スワップ不要」側しか通っていなかった。
 
-デコード分岐に `coding.pixel_byte_order = byte_order;`（エンコード分岐の対応行と同じ1行）を追加して修正。修正後、§2.1 の87ケース全てPASS（この不一致を露呈させた12件を含む）。
+デコード分岐に `coding.pixel_byte_order = byte_order;`（エンコード分岐の対応行と同じ1行）を追加して修正。修正後、§2.1 の全ケースPASS（この不一致を露呈させた12件を含む。発見当時の§2.1は87ケースで、その後のAC/DC/StagesCodingGaggles向け追加で現在の165ケースまで増えている）。
 
 **含意**: この不一致は、全パイプライン試験（観点1）がこれまで「デコード時に非デフォルトのバイト順を実際に要求する」ケースを一度も含んでいなかったために、87ケース目まで一切気づかれなかった。カバレッジ計測（観点1がCコードのどこを踏んでいるかの可視化）が、C側の未踏コードだけでなく、**試験マトリクス自体の見落とし**（Rust側のバグを隠していた欠落パターン）の発見にも直接つながった一例。
 
@@ -150,9 +150,9 @@ DC側DPCMのバグ発見を受け、AC側 `DPCM_ACMapper`/`DPCM_ACDeMapper` に�
 
 これまでの計測は、`main.c` を含む `bpe` 本体と、各関数直接呼び出しジェネレータ（`gen_rice_vectors.c` 等）を、共有する `.c` ファイル（例: `DC_EnDeCoding.c`）ごとに**別々に `gcc --coverage -c` で再コンパイル**してからリンクしていた。この方式では、後からリンクした側の `--coverage` ビルドが前段の実行で蓄積された `.gcda` を正しくマージせず、値が静かに過小集計されることが判明した。
 
-発見の経緯: `AdjustOutPut` の1024ケース直接呼び出しジェネレータ（§3.5）を既存の計測ビルドに追加リンクしても `AdjustOutput.c` のカバレッジが小数点以下まで一切変化しなかった。同じジェネレータを、依存する `.c` ファイルを一度もコンパイルし直さない**独立したビルド**で実行したところ、`AdjustOutput.c` 単体で行96%超（後述の最終値とほぼ一致）という、既存の計測値とは全く違う結果が出た。これは「ジェネレータがカバレッジを増やせていない」のではなく「計測方法自体が壊れていた」ことを意味する。
+発見の経緯: `AdjustOutPut` の1024ケース直接呼び出しジェネレータ（§3.5）を既存の計測ビルドに追加リンクしても `AdjustOutput.c` のカバレッジが小数点以下まで一切変化しなかった。同じジェネレータを、依存する `.c` ファイルを一度もコンパイルし直さない**独立したビルド**で実行したところ、`AdjustOutput.c` 単体で行95.70%（§3.6で述べる値多様化前の基準値と一致）という、既存の計測値とは全く違う結果が出た。これは「ジェネレータがカバレッジを増やせていない」のではなく「計測方法自体が壊れていた」ことを意味する。
 
-修正: 全ての対象 `.c` ファイルを**一度だけ** `gcc -O0 --coverage -c` でコンパイルし、`bpe` 本体・6個のジェネレータいずれも、この共有オブジェクトファイル群に対して（再コンパイルなしで）`gcc --coverage <objs> -o <bin>` でリンクする方式に改めた（リンク時にも `--coverage` が必要 — `__gcov_init`/`__gcov_exit` 等 `libgcov` のシンボル解決に要る）。この方式で全ビルドの `.gcda` が単一ディレクトリで正しくマージされることを確認した。**以下の数値は全てこの訂正後の方式で再計測したもの。** 過去のラウンドで報告していた数値（コア15ファイル全体で行75.96%・分岐66.26%、`AdjustOutput.c`単体で行65.02%・分岐56.60%等）は本訂正により無効であり、本節の数値に置き換える。
+修正: 全ての対象 `.c` ファイルを**一度だけ** `gcc -O0 --coverage -c` でコンパイルし、`bpe` 本体・6個のジェネレータいずれも、この共有オブジェクトファイル群に対して（再コンパイルなしで）`gcc --coverage <objs> -o <bin>` でリンクする方式に改めた（リンク時にも `--coverage` が必要 — `__gcov_init`/`__gcov_exit` 等 `libgcov` のシンボル解決に要る）。この方式で全ビルドの `.gcda` が単一ディレクトリで正しくマージされることを確認した。**以下の数値は全てこの訂正後の方式で再計測したもの。** 過去のラウンドで報告していたコア15ファイル全体の集計値（行75.96%・分岐66.26%）は、複数バイナリを合算する過程で`.gcda`マージが壊れていたことに起因する過小集計であり、本訂正により無効・本節の数値に置き換える。なお`AdjustOutput.c`単体の行65.02%・分岐56.60%（§3.5適用前、`bpe`本体単独でのマージ不要な計測）はこのマージ不整合の影響を受けないため無効化の対象ではなく、後述（§4「最終結果」）の§3.5改善量の起点として引き続き有効な数値である。
 
 ### AC側関数のカバレッジ拡充
 
@@ -263,7 +263,7 @@ AC側のN境界（前節）を修正した際、DC側にも同型の未踏分岐
 - `CustomWtFlag`（ユーザー定義ウェーブレット重み）: 同様に常に `FALSE` にハードコード。
 - `UseFill = TRUE` 分岐: `if (SegByteLimit_27Bits == 0) UseFill=FALSE; else UseFill=TRUE;` という判定が `HeaderInilization` 内で行われるが、この時点では `SegByteLimit_27Bits` はまだレート(`-r`)から計算される前の初期値 `0` — 参照実装自体の初期化順序の都合で、この分岐は構造的に到達不能。
 
-`bpe_decoder.c`（残り12.13%、35行中5行を除き到達不能と確認）:
+`bpe_decoder.c`（残り12.13%、33行全て到達不能と確認 — 追加テストでの改善余地なし）:
 
 - **`TransposeImg == TRANSPOSE` 分岐**（`DecodingOutputInteger`/`DecodingOutputFloating` 内、計18行）: エンコード側 `HeaderInilization`（header.c:56）が `TransposeImg` を常に `NOTRANSPOSE` にハードコードし、CLIのどのオプションからもこれを `TRANSPOSE` に変更する手段が存在しない（`main.c` に該当オプションなし）。デコード側自体はヘッダから正しく読み取っているが（`header.c:308`）、この参照実装自身のエンコーダが `TRANSPOSE` を書き出すことは構造的にない。
 - **`TempCoeffOutput` 関数全体**（9行）: `DecoderEngine` 内の唯一の呼び出し箇所がコメントアウト済み（`//	TempCoeffOutput(...)`）——デバッグ用のダンプ関数で、現在は完全に無効化されている。
@@ -273,10 +273,11 @@ AC側のN境界（前節）を修正した際、DC側にも同型の未踏分岐
 `AC_BitPlaneCoding.c`（残り13.93%）・`DC_EnDeCoding.c`（残り6.73%、§4のDC境界修正後）— 両ファイルは同じ構造（DC側/AC側で並行実装）を持つため、同種の未到達パターンが両方に現れる:
 
 - **`OptDCSelect`/`OptACSelect == FALSE` の「ヒューリスティック」符号選択分岐**（`ACGaggleEncoding`/`DCGaggleEncoding` 内、各16〜20行前後）: `HeaderInilization`（header.c:47-48）が両フラグを常に `TRUE`（ブルートフォース最適選択）にハードコードし、CLIのどのオプションからも `FALSE` に変更する手段が存在しない。`header.c` の `CodewordLength_2Bits`/`CustomWtFlag` と同種の、参照実装自身のCLIが露出させていない設定項目。
-- **AC側 `N > 5` を示す `ErrorMsg(BPE_DATA_ERROR)` 分岐**（`ACDepthEncoder`/`ACDepthDecoder`）: `N` は5bitヘッダフィールド `BitDepthAC_5Bits`（最大31）のビット長として計算されるため、数学的に `N` は最大でも5にしかならない（`31` の2進数は5桁）。この分岐は設計上の防御的コードであり、有効な入力からは構造的に到達不能。
-- **DC側 `N > 10` を示す `ErrorMsg(BPE_DATA_ERROR)` 分岐**（`DCEntropyDecoder`、AC側とは別原因）: DC側の `N`（`= max(BitDepthDC_5Bits − QuantizationFactorQ, 1)`）はAC側と違いビット幅による上限がないが、`QuantizationFactorQ_prime` の選定式（DC_EnDeCoding.c:530-537）が `BitDepthDC` の値に応じて `Q'` を `BitDepthDC−3` や `BitDepthDC−10` に設定するよう設計されており、結果として `N` は常に10以下に収まるよう構造的に保証されている（実測でも `BitDepthDC_5Bits` が19に達する画像でも `N` は10を超えなかった）。この保証がある限りこの分岐には到達しない。`DCEntropyEncoder`側（206-218行目）にはこの `else` 節自体が存在せず `Max_k`/`ID_Length` が初期値0のまま処理が続くが、同じ理由で `N>10` に到達しないため実害はない。
-- **`ACBpeEncoding`/`ACGaggleDecoding` 内の一部 `SegmentFull`/`RateReached` 早期return**（AC_BitPlaneCoding.c、計4行）: `AdjustOutPut`のX/Y停止座標（§3.5）と同種の、レート制限による打ち切りが「ちょうどその行の実行中」に起きるかというタイミング依存の分岐。セグメントサイズ16・4段階のレートによる掃引（§2.1）を追加しても踏めなかった——`AdjustOutPut`ほど分岐数は多くないため関数直接呼び出しハーネスを組む費用対効果は低いと判断し、残存ギャップとして記録するに留める。
-- **DC側の残り3行**（`QuantizationFactorQ_prime = BitDepthDC - 3` の特定条件分岐×2、`return k;`×1）: 実測で到達させられておらず、詳細未解明のまま残存ギャップとして記録する。
+- **AC側 `N > 5` を示す `ErrorMsg(BPE_DATA_ERROR)` 分岐**（`ACDepthEncoder`/`ACDepthDecoder`、計4行）: `N` は5bitヘッダフィールド `BitDepthAC_5Bits`（最大31）のビット長として計算されるため、数学的に `N` は最大でも5にしかならない（`31` の2進数は5桁）。この分岐は設計上の防御的コードであり、有効な入力からは構造的に到達不能。
+- **`CheckUsefill`（AC_BitPlaneCoding.c、計10行）**: `bpe_decoder.c` の `SegmentBufferFlushDecoder` フィル読み飛ばしループと全く同じ構造・同じ原因（`UseFill` がエンコード側で常に `FALSE` のまま書き出されるため、対応するデコード側の読み飛ばし処理に到達しない）。AC_BitPlaneCoding.c の確定デッドコード30行の内訳はヒューリスティック分岐16行・上記`N>5`4行・本項目10行で合計30行。
+- **DC側 `N > 10` を示す `ErrorMsg(BPE_DATA_ERROR)` 分岐**（`DCEntropyDecoder`、AC側とは別原因）: DC側の `N`（`= max(BitDepthDC_5Bits − QuantizationFactorQ, 1)`）はAC側と違いビット幅による上限がないが、`QuantizationFactorQ_prime` の選定式（DC_EnDeCoding.c:530-537）が `BitDepthDC` の値に応じて `Q'` を `BitDepthDC−3` や `BitDepthDC−10` に設定するよう設計されており、結果として `N` は常に10以下に収まるよう構造的に保証されている（実測でも `BitDepthDC_5Bits` が19に達する画像でも `N` は10を超えなかった）。この保証がある限りこの分岐には到達しない。`DCEntropyEncoder`側（206-218行目）にはこの `else` 節自体が存在せず `Max_k`/`ID_Length` が初期値0のまま処理が続くが、同じ理由で `N>10` に到達しないため実害はない（この防御的`ErrorMsg`とファイル冒頭付近の類似ガード計2行に加え、`OptDCSelect==FALSE`のヒューリスティック分岐16行で、DC_EnDeCoding.cの確定デッドコード20行のうち19行を占める。残り1行は`SegByteLimit`超過時の`ErrorMsg(BPE_RATE_ERROR)`）。
+- **`ACBpeEncoding`/`ACGaggleDecoding` 内の一部 `SegmentFull`/`RateReached` 早期return**（AC_BitPlaneCoding.c、計4行、こちらは確定デッドコードではなく到達可能な残存ギャップ）: `AdjustOutPut`のX/Y停止座標（§3.5）と同種の、レート制限による打ち切りが「ちょうどその行の実行中」に起きるかというタイミング依存の分岐。セグメントサイズ16・4段階のレートによる掃引（§2.1）を追加しても踏めなかった——`AdjustOutPut`ほど分岐数は多くないため関数直接呼び出しハーネスを組む費用対効果は低いと判断し、残存ギャップとして記録するに留める。
+- **DC側の残り3行**（`QuantizationFactorQ_prime = BitDepthDC - 3` の特定条件分岐×2、`return k;`×1、こちらも到達可能な残存ギャップ）: 実測で到達させられておらず、詳細未解明のまま残存ギャップとして記録する。
 
 `bitsIO.c`（残り25.00%、21行中21行すべて到達不能と確認 — 追加テストでの改善余地なし）:
 
@@ -285,13 +286,15 @@ AC側のN境界（前節）を修正した際、DC側にも同型の未踏分岐
 - **セグメント末尾のフィルバイト読み飛ばしループ**（2行）: `BitsOutput` 自身によるレート制限時の打ち切り（84-107行目）は、書き込み途中の値を `SegByteLimit_27Bits` のちょうどビット境界で止めるため、エンコーダが実際に書き出すバイト数は常に `SegByteLimit_27Bits` ぴったりになる。加えて `UseFill` は前述の通り常に `FALSE`（別経路の追加パディングも発生しない）。したがってデコード側でレート制限に達した時点の `CurrentTotalBytes` は既に `SegByteLimit_27Bits` と一致しており、「読み飛ばすべき残りバイト」が生じるケースが構造的に存在しない。
 - **`BitsOutput` の `length > 32` 分岐**（4行）: 全 `BitsOutput` 呼び出し箇所を確認したところ、固定長引数は最大27bit（`SegByteLimit_27Bits`）で、可変長引数（Rice風の「符号化済み先頭部」の長さ `(MappedDC/MappedAC >> min_k) + 1`）もこの参照実装がサポートする最大画素ビット深度16bitから決まる係数の実測レンジ（本レポートで16bit最大振幅市松模様を試した際も `BitDepthDC_5Bits` は19止まり、§4参照）を踏まえると32を超えることは実質的にない。理論上は`DCEntropyEncoder`のN>10時のフォールバック（`Max_k`/`ID_Length`が初期値の0のまま、208-218行目)という参照実装側の別の粗さはあるが、これはさらに稀な状況でも出力される値の量自体は増えず32bit超にはつながらない。100件超のテストケース（16bit最大振幅市松模様を含む）で一度も踏まれなかったことも状況証拠として確認済み。
 
-`StagesCodingGaggles.c`（残り11.15%、65行中約35行が確定的に到達不能／防御的コード、残り約30行は依然タイミング依存の残存ギャップ）:
+`PatternCoding.c`（残り3.94%、15行中9行が確定デッドコード、残り6行はタイミング依存の残存ギャップ）: `case 0: return;`（sym_len=0の早期return、1行）と、4箇所の`switch`文それぞれの`default: ErrorMsg(BPE_PATTERNING_CODING_ERROR)`（計8行）は、いずれもパターンマッピングが扱うsym_len/type値が有効範囲に収まることを前提とした防御的コード。残り6行（516,518,706-707,730-731行目）は`StagesCodingGaggles.c`と同種の停止位置記録チェックポイント（`DecodingStopLocations.stoppedstage`の設定含む）で、レート制限打ち切りタイミングに依存する残存ギャップ。
+
+`StagesCodingGaggles.c`（残り11.15%、65行中11行が確定的に到達不能／防御的コード、残り54行は依然タイミング依存の残存ギャップ）:
 
 - **`StageStop_2Bits == 00`/`==01` での早期return**（`StagesEnCodingGaggles1`/`3`、計2行）: `header.c` の `StageStop_2Bits` は `HeaderInilization` で常に `3` にハードコードされ（`CodewordLength_2Bits`/`TransposeImg` と同様、CLIのどのオプションからも変更されない）、`00`/`01` になることはない。
 - **`StagesEnCodingGaggles1` の `sym_len==4` 分岐と「無効な長さ」の `default: ErrorMsg`**（計4行）: このswitch文は `case 1: case 2: case 3:` のみを列挙しており、`sym_len==4` はそもそも `default:` 側（`ErrorMsg`）に落ちる——つまりswitchに入った時点で `sym_len` は1〜3のいずれかに限定され、その内側にある `sym_len==4` の分岐チェックは実行時に到達し得ない。`StagesEnCodingGaggles2`/`3` の同種の `ErrorMsg`（計2行）も、扱うシンボル種別（`TYPE_CI`/`TYPE_HIJ` 等）の構造上の子要素数（4個）を超える長さにはならないための同種の防御的コード。
 - **`StagesDeCodingGaggles3` の `flag==FALSE` による `continue`**（1行）: `CustomWtHH1_2bits` はエンコード側で常に `0` にハードコードされており（`header.c`、他のCustomWt系フィールドとは異なりこの帯域だけ重み0）、`0 >= BitPlane` は `BitPlane`（1以上）に対して成立し得ないため、対応する `k==2` の反復で必ず `flag=TRUE` になり、3反復とも `continue` する（`flag`が`FALSE`のまま）ケースは構造的に発生しない。
 - **`SegmentCount_8Bits==28 && BitPlane==13 && BlockSeq==10` 限定のno-opスキャフォールド**（`BlockSeq = BlockSeq;`、2行）: 有効な処理を何も行わない自己代入で、デバッガのブレークポイント用フックと見られる開発時の残骸。踏んでも意味のある検証にならないため追わない。
-- **残る約30行の `SegmentFull`/`RateReached` 早期return**（`X/Y_LocationStopDecoding` 記録箇所、複数）: `AdjustOutPut`が§3.6で解決したのと同種の、レート制限の打ち切りが「ちょうどそのチェックポイントで」起きるかというタイミング依存の分岐。セグメントサイズの多様化（本節）でかなりの数を潰したが、残りは費用対効果を鑑みてこれ以上は追わない。
+- **残る54行の `SegmentFull`/`RateReached` 早期return**（`X/Y_LocationStopDecoding` 記録箇所、複数）: `AdjustOutPut`が§3.6で解決したのと同種の、レート制限の打ち切りが「ちょうどそのチェックポイントで」起きるかというタイミング依存の分岐。セグメントサイズの多様化（本節）でかなりの数を潰したが、残りは費用対効果を鑑みてこれ以上は追わない。
 
 いずれもテストケースをどう工夫しても再現できない（手動でヘッダを改変しない限り）、本レポートの検証範囲の対象外である、または追加投資に見合わないタイミング依存の残存ギャップであるため、今後の課題からは除外する。
 
