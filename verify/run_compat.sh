@@ -210,6 +210,12 @@ run_from_manifest dc_depth_n4_64 1 1.0 256 0 ""
 run_from_manifest dc_negpow_64 1 0 256 1 ""
 run_from_manifest dc_mixed_sign_64 1 0 256 1 ""
 
+# QuantizationFactorQ_prime = BitDepthDC - 3 (DC_EnDeCoding.c): needs a high
+# BitDepthAC / low-ish BitDepthDC combination that neither a flat image nor a
+# checkerboard (where AC and DC bit-depth track each other too closely) ever
+# reaches -- see gen_vectors.py's sparse_bump_per_block.
+run_from_manifest dc_qprime_lo_64 1 0 256 0 ""
+
 # Same AC bit-depth-boundary images, rate-limited with a small segment (16
 # blocks, vs. the 64 total in these images -- 4 segments), to try to catch
 # ACBpeEncoding's/ACBpeDecoding's SegmentFull/RateReached-triggered early

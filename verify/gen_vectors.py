@@ -122,6 +122,23 @@ def negative_pixel_block(bg, block_value, block_w=8, block_h=8):
     return gen
 
 
+def sparse_bump_per_block(background, bump, block_size=8):
+    # A low, near-flat background (small BitDepthDC/DC magnitude) with one
+    # bumped pixel per 8x8 block (large local AC energy, high BitDepthAC) --
+    # found empirically to decouple the two bit-depths enough to satisfy
+    # DC_EnDeCoding.c's `QuantizationFactorQ_prime = BitDepthDC - 3` branch
+    # (needs BitDepthDC > 3 but BitDepthDC - (1+(BitDepthAC>>1)) <= 1, i.e. a
+    # high-AC/low-DC combination that neither a flat image nor a full-swing
+    # checkerboard -- where AC and DC bit-depth track each other too closely
+    # -- ever reaches). See COMPATIBILITY_REPORT.md.
+    def gen(x, y):
+        if x % block_size == block_size // 2 and y % block_size == block_size // 2:
+            return bump
+        return background
+
+    return gen
+
+
 def write_raw_8bit(path, values):
     path.write_bytes(bytes(values))
 
@@ -318,6 +335,16 @@ def main():
             64,
             generator=negative_pixel_block(20, -120),
             note="use with -g 1 -r 0: one 8x8 block at -120 against a +20 background hits the remaining negative-Max_DC branches",
+        )
+    )
+    cases.append(
+        build_case(
+            "dc_qprime_lo_64",
+            64,
+            64,
+            bit_depth=16,
+            generator=sparse_bump_per_block(2, 50),
+            note="use with -r 0: near-flat background 2 + a single bumped-to-50 pixel per 8x8 block hits QuantizationFactorQ_prime = BitDepthDC - 3",
         )
     )
 
