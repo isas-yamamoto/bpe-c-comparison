@@ -7,7 +7,7 @@
 ## 構成
 
 ```
-original/source/   C 参照実装（無改変。BPE_TRACE ビルド用のフックのみ追加）
+original/source/   C 参照実装（無改変。BPE_TRACE ビルド用のフックのみ追加。第三者コード、NOTICE参照）
 bpe-rs/             Rust 移植版（git submodule）
 verify/             検証ハーネス一式
 .github/workflows/  CI（push/PR ごとに自動検証）
@@ -49,3 +49,7 @@ verify/run_unit_vectors.py
 ## これまでに見つかった実際の不一致
 
 float DWT の丸め誤差、DPCM DC マッピングの整数幅バグ2件を発見・修正済み。詳細な原因分析は [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md) の「発見した不一致とその対応」を参照。
+
+## ライセンス
+
+`original/` 以下は第三者のライセンス済みコードであり、本リポジトリの他の部分（`verify/`、`COMPATIBILITY_REPORT.md` 等の独自成果物）とはライセンスが異なる。内訳・出典・各コンポーネントの権利関係は **[NOTICE](NOTICE)** を参照。

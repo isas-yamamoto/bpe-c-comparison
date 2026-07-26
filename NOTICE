@@ -1,0 +1,39 @@
+NOTICE
+======
+
+This repository verifies byte-level compatibility between a Rust
+implementation (bpe-rs, https://github.com/isas-yamamoto/bpe-rs) and a C
+reference implementation of the CCSDS 122.0 Recommended Standard (Image
+Data Compression, https://public.ccsds.org/).
+
+`original/` contains that C reference implementation, in full, as
+third-party software. It is NOT covered by whatever license applies to
+the rest of this repository (verify/, COMPATIBILITY_REPORT.md, README.md,
+etc., which are original work). Its contents break down as follows:
+
+1. The core BPE encoder/decoder (AC_BitPlaneCoding.c, AdjustOutput.c,
+   BPEBlockCoding.c, CoeffGroup.c, DC_EnDeCoding.c, PatternCoding.c,
+   StagesCodingGaggles.c, bitsIO.c, bpe_decoder.c, bpe_encoder.c,
+   errorhandle.c, header.c, lifting_97M.c, lifting_97f.c, main.c,
+   ricecoding.c, tailor.h, waveletbpe.c, global.h) was developed by
+   Hongqiang Wang, Department of Electrical Engineering, University of
+   Nebraska-Lincoln (UNL), historically distributed from
+   http://hyperspectral.unl.edu/, with bug-fix modifications by Aaron
+   Kiely (June-July 2008; see `original/readme_kielymods.rtf` for the
+   change log). The source files themselves state "you must read and
+   agree the license agreement carefully" before use, but that agreement
+   is not bundled in this repository and its exact terms are not
+   independently known to this repository's maintainer. Copyright is
+   presumed to rest with the University of Nebraska / Board of Regents of
+   the University of Nebraska.
+
+2. `getopt.c`/`getopt.h` are GNU getopt, Copyright (C) 1987-1993 Free
+   Software Foundation, Inc., licensed under the GNU General Public
+   License version 2 or (at your option) any later version.
+
+3. `tailor.h` is Copyright (C) 1992-1993 Jean-loup Gailly, also licensed
+   under the GNU General Public License (see the file's own header).
+
+This notice is for attribution and provenance only. It does not grant any
+rights to `original/`'s contents beyond whatever license each file
+actually carries, and it does not extend to the rest of this repository.
