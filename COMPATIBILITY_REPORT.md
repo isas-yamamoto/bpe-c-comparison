@@ -2,7 +2,7 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder、Aaron Kiely 氏によるバグ修正版 C 参照実装）と `bpe-rs/`（その Rust 移植版）が互換であることを、どのような観点で・どう試験し・その結果何が分かったかをまとめる。試験ハーネスは `verify/` に、実行方法は [README.md](README.md) に記載している。
 
-作成時点のコミット: 本リポジトリ（[bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)）`8241730` 以降 / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `3f557dc`。
+作成時点のコミット: 本リポジトリ（[bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)）`06a4faa` 以降 / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `3f557dc`。
 
 ## 1. 検証観点
 
