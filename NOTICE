@@ -15,17 +15,26 @@ etc., which are original work). Its contents break down as follows:
    BPEBlockCoding.c, CoeffGroup.c, DC_EnDeCoding.c, PatternCoding.c,
    StagesCodingGaggles.c, bitsIO.c, bpe_decoder.c, bpe_encoder.c,
    errorhandle.c, header.c, lifting_97M.c, lifting_97f.c, main.c,
-   ricecoding.c, tailor.h, waveletbpe.c, global.h) was developed by
-   Hongqiang Wang, Department of Electrical Engineering, University of
-   Nebraska-Lincoln (UNL), historically distributed from
-   http://hyperspectral.unl.edu/, with bug-fix modifications by Aaron
-   Kiely (June-July 2008; see `original/readme_kielymods.rtf` for the
-   change log). The source files themselves state "you must read and
-   agree the license agreement carefully" before use, but that agreement
-   is not bundled in this repository and its exact terms are not
-   independently known to this repository's maintainer. Copyright is
-   presumed to rest with the University of Nebraska / Board of Regents of
-   the University of Nebraska.
+   ricecoding.c, waveletbpe.c, global.h) was developed by Hongqiang Wang,
+   Department of Electrical Engineering, University of Nebraska-Lincoln
+   (UNL), historically distributed from http://hyperspectral.unl.edu/
+   (no longer live), with bug-fix modifications by Aaron Kiely (June-July
+   2008; see `original/readme_kielymods.rtf` for the change log). It is
+   covered by UNL's "License Agreement on the Implementation of CCSDS
+   122.0-B-1 Recommended Standard", reproduced verbatim in
+   `original/LICENSE` (obtained from the oresat/libbpe project, which
+   mirrors the same UNL distribution -- its `UNL_readme_kielymods.txt` is
+   byte-identical to our own `readme_kielymods.rtf`, cross-checked in
+   COMPATIBILITY_REPORT.md §6). Copyright rests with the University of
+   Nebraska / Board of Regents of the University of Nebraska. In summary,
+   that license grants a nonexclusive, royalty-free right to use, copy,
+   distribute, and modify the software, subject to: verbatim redistribution
+   must keep the copyright/warranty notices and this license intact;
+   modifications must be marked with what changed and when; any
+   distributed work based on this software must itself be licensed to all
+   third parties at no charge under these same terms; and selling,
+   renting, or leasing the software (or any work based on it) is expressly
+   prohibited. See `original/LICENSE` for the full, authoritative text.
 
 2. `getopt.c`/`getopt.h` are GNU getopt, Copyright (C) 1987-1993 Free
    Software Foundation, Inc., licensed under the GNU General Public
