@@ -12,7 +12,17 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TESTDATA="$ROOT/testdata"
-WORK="$TESTDATA/work"
+# A short, fixed-location temp dir for encode/decode *output* paths -- NOT
+# under $ROOT, whose checkout path can be long enough (e.g. GitHub Actions'
+# /home/runner/work/<repo>/<repo>/...) to overflow the C reference's fixed
+# 100-byte CodingOutputFile/StringBuffer buffers in main.c (StringBuffer[100]
+# gets a strcpy of the full -o path followed by strcat("En.txt"/".txt"),
+# which glibc's _FORTIFY_SOURCE catches as "*** buffer overflow detected ***"
+# once the path exceeds ~93-96 chars). Input raw files stay under $TESTDATA
+# since gen_vectors.py writes there and their paths are only ever read, not
+# written into that fixed buffer.
+WORK="$(mktemp -d -t bpe-compat-work.XXXXXX)"
+trap 'rm -rf "$WORK"' EXIT
 C_SRC="$ROOT/original/source"
 RUST_DIR="$ROOT/bpe-rs"
 
@@ -36,8 +46,6 @@ gen_args=()
 python3 "$ROOT/verify/gen_vectors.py" "${gen_args[@]}"
 
 MANIFEST="$TESTDATA/manifest.json"
-rm -rf "$WORK"
-mkdir -p "$WORK"
 
 FAILURES=()
 PASS_COUNT=0
