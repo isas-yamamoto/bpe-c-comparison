@@ -49,11 +49,3 @@ verify/run_unit_vectors.py
 ## これまでに見つかった実際の不一致
 
 float DWT の丸め誤差、DPCM DC マッピングの整数幅バグ2件を発見・修正済み。詳細な原因分析は [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md) の「発見した不一致とその対応」を参照。
-
-## 更なる詳細
-
-アルゴリズム自体の解説（DWT・DC/AC符号化・Rice符号化など）は bpe-rs 側のドキュメントを参照:
-
-- [bpe-rs/docs/algorithm_ja.md](bpe-rs/docs/algorithm_ja.md) — 全体地図
-- [bpe-rs/docs/verify_ja.md](bpe-rs/docs/verify_ja.md) — 検証手順の考え方
-- [bpe-rs/docs/code_reading_ja.md](bpe-rs/docs/code_reading_ja.md) — 実装対応表
