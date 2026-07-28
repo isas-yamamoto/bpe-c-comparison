@@ -10,7 +10,7 @@
 
 | 分類 | 範囲 | 状態 |
 |---|---|---|
-| **完全互換を確認済み** | 整数DWT（`-t 1`、実運用の既定）での全パイプライン166/166ケース（§2.1）／Rice・2の補数変換・DPCM(DC・AC)・パターンマッピング・`AdjustOutPut`・`CodingOptions`の関数レベル全数検証7/7（§2.2）／ランダム化fuzz試験2000ケース（§2.3、CIで継続実行）／`readme_kielymods`記載の外部バグ指摘8項目（§6）／コア15ファイル全ての実効カバレッジ100.00%（行・分岐とも、§4） | 不一致 **0件** |
+| **完全互換を確認済み** | 整数DWT（`-t 1`、実運用の既定）での全パイプライン166/166ケース（§2.1）／Rice・2の補数変換・DPCM(DC・AC)・パターンマッピング・`AdjustOutPut`・`CodingOptions`・`ACDepthEncoder`/`Decoder`・`DCEntropyEncoder`/`Decoder`の関数レベル全数検証9/9（§2.2）／ランダム化fuzz試験2000ケース（§2.3、CIで継続実行）／`readme_kielymods`記載の外部バグ指摘8項目（§6）／コア15ファイル全ての実効カバレッジ100.00%（行・分岐とも、§4） | 不一致 **0件** |
 | **既知の差異（残存・修正不能）** | float DWT（`-t 0`）でのデコード: コンパイラ（gcc/rustc）間の浮動小数点丸め実装差に起因する1ULPレベルの残存差。3画像・28レート値中5件で発現（§3.3）。整数DWTは無関係 | バグではなくコンパイラ差と判断、実用上解消不能 |
 | **検証対象外** | ファイルI/O失敗等のエラーパス、CLIから構造的に到達不能な設定項目（`CustomWtFlag`・`TransposeImg`等、確定デッドコード356行、§4） | 意図的にスコープ外 |
 
@@ -69,8 +69,12 @@
 | `DPCM_ACMapper`/`DPCM_ACDeMapper` | AC_BitPlaneCoding.c | N = 2, 3, 4, 5（`ac_depth_encoder` が許容する全深度）× 同様の3系列 | Rust `dpcm_ac_mapper`/`dpcm_ac_demapper` の出力がCと完全一致（不一致なし、§3.4参照） |
 | `AdjustOutPut` | AdjustOutput.c | DWTType(2) × stoppedstage(1–4) × b_DC分岐(3) × ブロック内停止座標 X/Y(8×8) × 値の符号variant(4) = 6144通り全数 | Rust `adjust_output` の出力（ブロック内int/float係数、3ブロック分）がCと完全一致（不一致なし、§3.5・§3.6参照） |
 | `CodingOptions` | PatternCoding.c | sym_len 2/3/4 × 全carrying type、単一シンボル全域＋sym_len 3のペア全64通り＋sym_len 4の(a,b,c)三つ組全4096通り＋§4項目8で発見した2つの手作りケース（328/329行目の偽方向） = 4230通り | Rust `coding_options` の出力（Option[0..3]）がCと完全一致（不一致なし） |
+| `ACDepthEncoder`/`ACDepthDecoder` | AC_BitPlaneCoding.c | `ACDepthEncoder`が支援するN(2-5)全域を代表するBitDepthAC_5Bits値×1〜3ガグル相当のセグメントサイズ5通り×BitMaxAC分布3パターン（ramp/extremes/mid-boundary） = 120通り | Rust `ac_depth_encoder`の出力バイト列がCと完全一致。さらにCが生成したバイト列を`ac_depth_decoder`に読ませ、元のBitMaxAC列を正しく復元できるかも確認（クロスデコード） |
+| `DCEntropyEncoder`/`DCEntropyDecoder` | DC_EnDeCoding.c | `QuantizationFactorQ_prime`の4分岐のうちN≥2で到達可能な全パターン×Nブラケット4種（2/≤4/≤8/>8）×セグメントサイズ5通り×ShiftedDC分布3パターン＝75通り（§4.3.3追加ビットプレーンの有無も両方含む） | Rust `dc_entropy_encoder`の出力バイト列がCと完全一致。追加ビットプレーンが無いケースのみ`dc_entropy_decoder`でのクロスデコードも確認（理由は本文参照） |
 
-**結果: 7/7 テストグループ PASS**（ただし後述の通り、DC側DPCM は1周目で2件の不一致を検出・修正した上での PASS）。
+**結果: 9/9 テストグループ PASS**（ただし後述の通り、DC側DPCM は1周目で2件の不一致を検出・修正した上での PASS）。
+
+`ACDepthEncoder`/`DCEntropyEncoder`のテストベクタ生成中、`CustomWtLL3_2bits`（LL3サブバンドの既定ウェイト値）を誤って0で初期化していたことが判明した——`HeaderInilization`はこれを常に`3`にハードコードしており（`CustomWtFlag`が常時FALSEなのとは別の話で、こちらは0にはならない）、`DCEntropyEncoder`は`QuantizationFactorQ`・`numaddbitplanes`双方の計算でこの値を`max()`に使う。ジェネレータ側をこの値で修正したところ、bpe-rs側の実装（`dc/entropy.rs`の`dc_entropy_encoder`自体）は最初から正しく`custom_wt_ll3`を折り込んでおり、実装バグではなくテストハーネスの初期化漏れだったと確認できた。
 
 ### 2.3 ランダム化fuzz試験（`verify/fuzz_compat.py`）
 
@@ -464,7 +468,7 @@ AC側のN境界（前節）を修正した際、DC側にも同型の未踏分岐
 12. ~~`PatternCoding.c`の`CodingOptions`に残っていた分岐カバレッジの残存5分岐~~ → 対応済み。1分岐（4-bit Rice分割オプション選択チェーンの328行目偽方向）は反例となる具体的シンボル値の組み合わせを新たに発見しテストへ追加、残り4分岐（330・334・335・336行目）は推移律と「4実数のうち必ずどれかは他の3つ以下」という恒真命題から構造的到達不能と証明した。これによりコア15ファイル全て（`PatternCoding.c`含む）が実効カバレッジ100.00%（行・分岐とも）に到達し、本レポートで「未証明」のまま残っていた項目はなくなった。
 13. **カバレッジ100%は「形式的な完全互換の証明」ではない、という指摘を踏まえた今後の拡張方針。** コードカバレッジ（行・分岐）は「そのコードパスを少なくとも1つの値で実行し、Rustと一致した」ことしか保証せず、「同じパスを通る他の全ての値」まで保証しない。実際、本プロジェクトで見つかった実バグ（DPCM N=16、float DWT丸め、デコード側`-f`無視）はいずれも「未踏コードパスに潜んでいたバグ」であり、カバレッジ改善はこの種の穴を塞ぐ作業として有効だったが、「踏んだパスの中の別の値」由来のバグを排除する力はない。全入力値についての形式的な証明に近づけるには、優先度順に以下が考えられる：
     - ~~**ランダム化・fuzzing試験の追加**~~ → 対応済み。`verify/fuzz_compat.py`を新設し、画像サイズ・ビット深度・符号・バイト順・レート・セグメントサイズ・画素内容をランダムに組み合わせて観点1と同じバイト一致チェックを繰り返す（§2.3）。整数DWTに限定（float DWTは§3.3の既知の1ULP残存差を高頻度で踏みノイズになるため対象外、`--dwt-type both`で明示的に含めることは可能）。手元で2000ケース実行し不一致0件。CIに2段階で統合: push/PRごとに固定シード50ケースの軽量スモークテスト、週次/手動で乱数シード5000ケースの深掘り（`deep-fuzz`ジョブ）。
-    - **既存の「直接呼び出し＋全数（または準全数）列挙」手法（Rice/DPCM/PatternMapping/`AdjustOutPut`で実施済み、§2.2）を、他のアキュムレータ絡み関数にも拡張する**（`CodingOptions`は対応済み——単一/ペア/三つ組の網羅的スイープと本レポート§4項目8で発見した2件の手作りケースを合わせ4230通り、不一致なし、§2.2）。**`ACGaggleEncoding`/`ACGaggleDecoding`・`DCGaggleEncoding`/`DCGaggleDecoding`は未着手**——これらはより高階の関数で、`ACDepthEncoder`/`ACDepthDecoder`・`DCEntropyEncoder`/`DCEntropyDecoder`経由で間接的にしか呼ばれず（bpe-rs側もこれらのgaggle関数自体は非公開）、複数ビットプレーン・複数ブロックにまたがる現実的な状態を直接構築する必要があるため`CodingOptions`より着手コストが高い。値域が大きすぎて厳密な全数列挙は現実的でなくても、境界値＋ランダムの組み合わせで実質網羅に近づけられるはずで、次の拡張候補として残す。
+    - ~~**既存の「直接呼び出し＋全数（または準全数）列挙」手法（Rice/DPCM/PatternMapping/`AdjustOutPut`で実施済み、§2.2）を、他のアキュムレータ絡み関数にも拡張する**~~ → 対応済み。`CodingOptions`（単一/ペア/三つ組の網羅的スイープ、4230通り）に続き、`ACDepthEncoder`/`ACDepthDecoder`（N全域×セグメントサイズ5通り×分布3パターン、120通り）・`DCEntropyEncoder`/`DCEntropyDecoder`（`QuantizationFactorQ_prime`の到達可能な全分岐×Nブラケット4種×セグメントサイズ5通り×分布3パターン、75通り）も直接呼び出しで追加、いずれも不一致なし（§2.2）。`ACGaggleEncoding`/`ACGaggleDecoding`・`DCEncoder`/`DCGaggleDecoding`自体（gaggle単位の内部関数、bpe-rs側も非公開）は直接テストせず、公開されている一段上の`ACDepthEncoder`等を経由して間接的に駆動している——これらの関数自体を直接呼び出すには、bpe-rs側の可視性変更が必要になるため見送った。なおこの過程で、DCテストベクタ生成時に`CustomWtLL3_2bits`（LL3サブバンド既定ウェイト、`HeaderInilization`が常に`3`にハードコード）をジェネレータ側が誤って0初期化していたことが発覚したが、bpe-rs本体の実装は最初から正しく実装済みで、テストハーネス側の初期化漏れだったと確認できた（本文参照）。
     - **ミューテーションテスト**: Rust側（またはC側）に意図的にバグを注入し、既存の試験群が実際に検出できるかを確認する。「カバレッジはあるが検出力が弱い」という穴を潰す保険。
     - **float DWTの1ULP残存差（§3.3）の解決**: これだけは「未踏の値」の問題ではなく「コンパイラの丸め実装差」であるため、(a) IEEE754厳密モードの強制などで解消を試みる、(b) 誤差の数学的上界を証明し画素丸めの境界を絶対に超えないと示す、(c) クレームのスコープから明示的に除外する、のいずれかが必要。
     - （費用対効果が低いと見込むため優先度は最も低い）**形式手法・シンボリック実行による等価性の数学的証明**。CCSDSの仕様自体は単純なビット操作の集合であり理論上不可能ではないが、投じる労力に見合わない可能性が高い。
