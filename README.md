@@ -1,6 +1,6 @@
-# compare — CCSDS BPE C/Rust 互換性実証リポジトリ
+# compare — CCSDS BPE C/Rust 互換性検証リポジトリ
 
-`original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder の C 参照実装、Aaron Kiely 氏によるバグ修正版）と、`bpe-rs/`（その Rust 移植版、[isas-yamamoto/bpe-rs](https://github.com/isas-yamamoto/bpe-rs)）が**完全に互換**であることを実証・継続検証するためのリポジトリ。
+`original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder の C 参照実装、Aaron Kiely 氏によるバグ修正版）と、`bpe-rs/`（その Rust 移植版、[isas-yamamoto/bpe-rs](https://github.com/isas-yamamoto/bpe-rs)）が互換であることを、広範な試験・関数レベル全数検証・コードカバレッジ計測によって継続的に確認しているリポジトリ。**これは全入力値について形式的に証明したものではない** — テストされた範囲についての高い確度の経験的確認である。保証の範囲・既知の限界・今後さらに確度を上げる手段は下記「どこまで互換で、どこから差異があるか」と [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md) §5「総合評価」を参照。
 
 ## どこまで互換で、どこから差異があるか
 
