@@ -2,7 +2,15 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder の C 参照実装、Aaron Kiely 氏によるバグ修正版）と、`bpe-rs/`（その Rust 移植版、[isas-yamamoto/bpe-rs](https://github.com/isas-yamamoto/bpe-rs)）が**完全に互換**であることを実証・継続検証するためのリポジトリ。
 
-検証観点・試験結果・カバレッジ評価の詳細は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** を参照（冒頭「§0 要約」に、どこまで互換でどこから差異があるかを短くまとめてある）。過去のフル検証ラウンドとの比較・推移は **[verify/results/history.md](verify/results/history.md)** に記録している。
+## どこまで互換で、どこから差異があるか
+
+| 分類 | 範囲 | 状態 |
+|---|---|---|
+| **完全互換を確認済み** | 整数DWT（`-t 1`、実運用の既定）での全パイプライン166/166ケース／Rice・2の補数変換・DPCM(DC・AC)・パターンマッピング・`AdjustOutPut`の関数レベル全数検証6/6／`readme_kielymods`記載の外部バグ指摘8項目 | 不一致 **0件** |
+| **既知の差異（残存・修正不能または未証明）** | ① float DWT（`-t 0`）でのデコード: コンパイラ（gcc/rustc）間の浮動小数点丸め実装差に起因する1ULPレベルの残存差（3画像・28レート値中5件で発現）。整数DWTは無関係。<br>② `PatternCoding.c` 内の5分岐（Rice分割オプションの同点判定の一部）: 到達可能かどうかを数学的に確定できていない | ①はバグではなくコンパイラ差と判断、実用上解消不能。②は実害未確認だが証明が残課題 |
+| **検証対象外** | ファイルI/O失敗等のエラーパス、CLIから構造的に到達不能な設定項目（確定デッドコード356行） | 意図的にスコープ外 |
+
+詳細な根拠・試験内容・カバレッジ評価は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** を参照。過去のフル検証ラウンドとの比較・推移は **[verify/results/history.md](verify/results/history.md)** に記録している。
 
 ## 構成
 
@@ -13,26 +21,7 @@ verify/             検証ハーネス一式
 .github/workflows/  CI（push/PR ごとに自動検証）
 ```
 
-## 互換性の検証内容
-
-### 1. 全パイプラインのバイト一致（`verify/run_compat.sh`）
-
-既知のエッジケース（`original/readme_kielymods.rtf` に記録された Kiely 氏のバグ修正箇所）を含むテストマトリクスで、両実装のエンコード出力・相互デコード出力がバイト単位で一致することを確認する。
-
-```sh
-verify/run_compat.sh              # 標準マトリクス
-verify/run_compat.sh --include-slow   # + 2^15 ブロック/セグメント超の回帰ケース（低頻度用）
-```
-
-カバーする範囲: 通常画像、全ゼロ画像、最小サイズ(17×17)、セグメント境界（総ブロック数 15/16/17/31/32/33、末尾1ブロックセグメント）、16bit画素×エンディアン、符号付き画素、integer/float DWT、複数レート。
-
-### 2. 関数レベルの突き合わせ（`verify/run_unit_vectors.py`）
-
-Rice 符号化・2の補数変換・DPCM DC マッピング・パターンマッピングについて、C参照実装のオブジェクトコードに直接リンクしたジェネレータ（`verify/c_unit_tests/`）で全表現可能値（または境界を突いた入力列）を網羅したベクタを生成し、bpe-rs 側の対応関数がバイト単位で同じ結果を出すことを確認する。個々の画像がたまたま踏む値だけでなく、表現可能な全入力域・既知の境界ケースをカバーする。Rice は暗号化バイト列の一致だけでなく、C側が生成したバイト列を Rust 側でデコードして値が復元できるかも確認する（クロスデコード）。
-
-### 3. ステージ境界のトレース比較（`verify/compare_traces.py`）
-
-将来なんらかの不一致が出た際に「どの段階で分岐したか」を特定するため、DWT変換直後・ブロック文字列構築直後の中間値を両実装からダンプして diff する。既定ビルドの動作には影響しない（環境変数 `BPE_TRACE_DIR` 未設定時は完全に無効）。
+各試験が具体的に何を・どういう観点で検証しているか（166ケースの内訳、関数レベル全数検証の対象、カバレッジ評価の方法まで）は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** の「§1 検証観点」「§2 試験内容と結果」に一つずつ記載している。ここ（README）では概要のみ扱う。
 
 ## ローカルでの実行
 
@@ -44,7 +33,7 @@ verify/run_unit_vectors.py
 
 ## CI
 
-`.github/workflows/compat.yml` が push・PR ごとに上記 1・2 を自動実行する。2^15 ブロック超の回帰ケースは週次スケジュール/手動実行のみ（低頻度・低リスクのため）。
+`.github/workflows/compat.yml` が push・PR ごとに `verify/run_compat.sh`（全パイプラインのバイト一致）と `verify/run_unit_vectors.py`（関数レベルの突き合わせ）を自動実行する。2^15 ブロック超の回帰ケースは週次スケジュール/手動実行のみ（低頻度・低リスクのため）。
 
 `.github/workflows/bpe-rs-poll.yml` は毎日 bpe-rs の `main` を確認し、submodule の pin より進んでいれば同様の検証を行い、通れば submodule bump PR を自動作成する（失敗時はPRを作らずワークフローが失敗するのみ）。詳細は [verify/results/history.md](verify/results/history.md)。
 
