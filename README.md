@@ -6,7 +6,7 @@
 
 | 分類 | 範囲 | 状態 |
 |---|---|---|
-| **完全互換を確認済み** | 整数DWT（`-t 1`、実運用の既定）での全パイプライン166/166ケース／Rice・2の補数変換・DPCM(DC・AC)・パターンマッピング・`AdjustOutPut`の関数レベル全数検証6/6／`readme_kielymods`記載の外部バグ指摘8項目／コア15ファイル全ての実効カバレッジ100.00%（行・分岐とも） | 不一致 **0件** |
+| **完全互換を確認済み** | 整数DWT（`-t 1`、実運用の既定）での全パイプライン166/166ケース／Rice・2の補数変換・DPCM(DC・AC)・パターンマッピング・`AdjustOutPut`・`CodingOptions`の関数レベル全数検証7/7／ランダム化fuzz試験（CIで継続実行）／`readme_kielymods`記載の外部バグ指摘8項目／コア15ファイル全ての実効カバレッジ100.00%（行・分岐とも） | 不一致 **0件** |
 | **既知の差異（残存・修正不能）** | float DWT（`-t 0`）でのデコード: コンパイラ（gcc/rustc）間の浮動小数点丸め実装差に起因する1ULPレベルの残存差（3画像・28レート値中5件で発現）。整数DWTは無関係 | バグではなくコンパイラ差と判断、実用上解消不能 |
 | **検証対象外** | ファイルI/O失敗等のエラーパス、CLIから構造的に到達不能な設定項目（確定デッドコード356行） | 意図的にスコープ外 |
 
@@ -29,11 +29,12 @@ verify/             検証ハーネス一式
 git submodule update --init --recursive   # 初回のみ
 verify/run_compat.sh
 verify/run_unit_vectors.py
+verify/fuzz_compat.py --iterations 500    # ランダム化fuzz試験（任意、--seedで再現可能）
 ```
 
 ## CI
 
-`.github/workflows/compat.yml` が push・PR ごとに `verify/run_compat.sh`（全パイプラインのバイト一致）と `verify/run_unit_vectors.py`（関数レベルの突き合わせ）を自動実行する。2^15 ブロック超の回帰ケースは週次スケジュール/手動実行のみ（低頻度・低リスクのため）。
+`.github/workflows/compat.yml` が push・PR ごとに `verify/run_compat.sh`（全パイプラインのバイト一致）・`verify/run_unit_vectors.py`（関数レベルの突き合わせ）・`verify/fuzz_compat.py --iterations 50 --seed 0`（軽量fuzzスモークテスト）を自動実行する。2^15 ブロック超の回帰ケースと5000ケースの深掘りfuzz（`deep-fuzz`ジョブ、乱数シード）は週次スケジュール/手動実行のみ（低頻度・低リスクのため）。
 
 `.github/workflows/bpe-rs-poll.yml` は毎日 bpe-rs の `main` を確認し、submodule の pin より進んでいれば同様の検証を行い、通れば submodule bump PR を自動作成する（失敗時はPRを作らずワークフローが失敗するのみ）。詳細は [verify/results/history.md](verify/results/history.md)。
 

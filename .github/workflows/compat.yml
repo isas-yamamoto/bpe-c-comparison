@@ -35,12 +35,23 @@ jobs:
       - name: function-level shared vectors (Rice, two's-complement)
         run: verify/run_unit_vectors.py
 
+      - name: randomized fuzz smoke test (small, deterministic seed)
+        run: verify/fuzz_compat.py --iterations 50 --seed 0
+
       - name: upload trace artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: compat-failure-testdata
           path: testdata/
+          retention-days: 7
+
+      - name: upload fuzz failure repros on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-failure-repros
+          path: verify/fuzz_failures/
           retention-days: 7
 
   large-segment-regression:
@@ -61,3 +72,33 @@ jobs:
 
       - name: byte-compatibility matrix including >2^15-blocks-per-segment case
         run: verify/run_compat.sh --include-slow
+
+  deep-fuzz:
+    name: deep randomized fuzz (slow, weekly/manual only)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bpe-rs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Randomly seeded (not the fixed seed=0 the PR-gating smoke test uses)
+      # so each weekly run explores a fresh slice of the input space instead
+      # of re-checking the same 5000 cases every time.
+      - name: randomized fuzz, integer DWT
+        run: verify/fuzz_compat.py --iterations 5000 --seed $RANDOM --max-dim 300
+
+      - name: upload fuzz failure repros on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-fuzz-failure-repros
+          path: verify/fuzz_failures/
+          retention-days: 30
