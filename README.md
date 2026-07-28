@@ -2,7 +2,7 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder の C 参照実装、Aaron Kiely 氏によるバグ修正版）と、`bpe-rs/`（その Rust 移植版、[isas-yamamoto/bpe-rs](https://github.com/isas-yamamoto/bpe-rs)）が**完全に互換**であることを実証・継続検証するためのリポジトリ。
 
-検証観点・試験結果・カバレッジ評価の詳細は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** を参照。
+検証観点・試験結果・カバレッジ評価の詳細は **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)** を参照（冒頭「§0 要約」に、どこまで互換でどこから差異があるかを短くまとめてある）。過去のフル検証ラウンドとの比較・推移は **[verify/results/history.md](verify/results/history.md)** に記録している。
 
 ## 構成
 
@@ -45,6 +45,8 @@ verify/run_unit_vectors.py
 ## CI
 
 `.github/workflows/compat.yml` が push・PR ごとに上記 1・2 を自動実行する。2^15 ブロック超の回帰ケースは週次スケジュール/手動実行のみ（低頻度・低リスクのため）。
+
+`.github/workflows/bpe-rs-poll.yml` は毎日 bpe-rs の `main` を確認し、submodule の pin より進んでいれば同様の検証を行い、通れば submodule bump PR を自動作成する（失敗時はPRを作らずワークフローが失敗するのみ）。詳細は [verify/results/history.md](verify/results/history.md)。
 
 ## これまでに見つかった実際の不一致
 

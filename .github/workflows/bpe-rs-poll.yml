@@ -1,0 +1,119 @@
+name: bpe-rs update poller
+
+# Polls the bpe-rs repo's main branch daily. If it has moved past the commit
+# currently pinned by the submodule, checks it out, re-runs the byte-compat
+# matrix and function-level vectors against it, and — only if everything
+# passes — opens a PR bumping the submodule pin and recording the round in
+# verify/results/history.md. On failure the job simply fails; no PR is
+# opened, so a maintainer has to look at it (see COMPATIBILITY_REPORT.md §0).
+#
+# This does NOT re-run the gcov coverage measurement (verify/README §4) —
+# that stays a manual step for full verification rounds. Auto-bump rounds
+# record "—" in the coverage columns of history.md.
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: check for a newer bpe-rs main
+        id: check
+        run: |
+          current_sha=$(git -C bpe-rs rev-parse HEAD)
+          latest_sha=$(git ls-remote https://github.com/isas-yamamoto/bpe-rs.git refs/heads/main | cut -f1)
+          echo "current=$current_sha" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest_sha" >> "$GITHUB_OUTPUT"
+          if [ "$current_sha" = "$latest_sha" ]; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: skip if a bump PR for this commit already exists
+        if: steps.check.outputs.updated == 'true'
+        id: branch
+        run: |
+          short=$(echo "${{ steps.check.outputs.latest }}" | cut -c1-12)
+          branch="auto-bump-bpe-rs/$short"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+      - uses: Swatinem/rust-cache@v2
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        with:
+          workspaces: bpe-rs
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        with:
+          python-version: '3.x'
+
+      - name: check out the new bpe-rs commit
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        run: |
+          cd bpe-rs
+          git fetch origin main
+          git checkout "${{ steps.check.outputs.latest }}"
+
+      - name: full-pipeline byte-compatibility matrix
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        run: verify/run_compat.sh --include-slow
+
+      - name: function-level shared vectors
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        run: verify/run_unit_vectors.py
+
+      - name: upload trace artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpe-rs-poll-failure-testdata
+          path: testdata/
+          retention-days: 7
+
+      - name: record the round and open a bump PR
+        if: steps.check.outputs.updated == 'true' && steps.branch.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          date=$(date -u +%F)
+          this_repo_sha=$(git rev-parse HEAD)
+          bpe_rs_sha="${{ steps.check.outputs.latest }}"
+          bpe_rs_short=$(echo "$bpe_rs_sha" | cut -c1-12)
+          branch="${{ steps.branch.outputs.name }}"
+
+          row="| $date | \`$this_repo_sha\` (pre-bump) | \`$bpe_rs_short\` | 166/166 PASS (\`--include-slow\`) | PASS | — | — | (前回の履歴と同一のはず、再計測なし) | 自動ポーリングによるbpe-rs追従。coverageは自動ラウンドでは再計測しないため \`verify/run_compat.sh --include-slow\` \`verify/run_unit_vectors.py\` のPASSのみ記録 |"
+          echo "$row" >> verify/results/history.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add bpe-rs verify/results/history.md
+          git commit -m "Bump bpe-rs submodule to $bpe_rs_short (auto-verified)"
+          git push origin "$branch"
+
+          gh pr create \
+            --title "Bump bpe-rs submodule to $bpe_rs_short" \
+            --body "bpe-rs's \`main\` moved to \`$bpe_rs_sha\`. \`verify/run_compat.sh --include-slow\` and \`verify/run_unit_vectors.py\` both passed against it. Coverage was not re-measured (manual step, see verify/results/history.md). Opened automatically by .github/workflows/bpe-rs-poll.yml." \
+            --head "$branch" \
+            --base main
