@@ -86,6 +86,19 @@ int main(void) {
         int vals[5] = {8, 8, 8, 15, 15};
         run_symbols(4, ENUM_TYPE_CI, 5, vals);
     }
+    /* 4x pattern0 + 3x pattern6 (bit4_pattern_TypeCi: sym_val=8 -> pattern
+     * 0, sym_val=3 -> pattern 6) drives bitsCounter_4Bits to (25,26,24,28).
+     * Neither bitsCounter_4Bits[3] (28) nor [0] (25) is the minimum, so the
+     * first two `else if` clauses (PatternCoding.c:316,322) both fail and
+     * control reaches the third clause's *first* condition
+     * (`bitsCounter_4Bits[1] <= bitsCounter_4Bits[0]`, line ~328) -- which
+     * is false here (26 > 25), a direction no other case in this file
+     * exercises. Falls through to the fourth clause (bitsCounter_4Bits[2]
+     * == 24 is the true minimum), landing Option[2]=2. */
+    {
+        int vals[7] = {8, 8, 8, 8, 3, 3, 3};
+        run_symbols(4, ENUM_TYPE_CI, 7, vals);
+    }
 
     /* A handful of other multi-symbol mixes to widen coverage of the
      * remaining pairwise tie-break directions without hand-deriving
