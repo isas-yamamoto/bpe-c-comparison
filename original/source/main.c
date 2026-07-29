@@ -19,6 +19,7 @@ March 9, 2008
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include "getopt.h"
 #include "global.h"
 
