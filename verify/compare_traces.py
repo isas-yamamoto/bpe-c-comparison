@@ -22,8 +22,14 @@ call sites):
     values (appended across segments).
   - reassembled: the full-image coefficient array right before
     CoeffDegroupFloating/coeff_degroup_floating.
+  - post_idwt_level2, post_idwt_level1: the image after each of the inverse
+    9/7 lifting's 3 levels (levels=3 fixed) finishes, coarsest first --
+    bisects which level first introduces a divergence between reassembled
+    (pre-transform) and post_idwt (post-transform). See lifting_97f.c /
+    lifting97f.rs.
   - post_idwt: the image right after DWT_ReverseFloating/dwt_reverse_floating,
-    before ImageWriteFloat/image_write_float.
+    before ImageWriteFloat/image_write_float (same array level0's lifting
+    pass leaves behind, so there's no separate post_idwt_level0 seam).
 
 This intentionally stops short of tracing per-gaggle DC/AC internals: those
 primitives (Rice coding, DPCM mapping, two's-complement conversion, pattern
@@ -66,6 +72,16 @@ ENCODE_SEAMS = [
 DECODE_SEAMS = [
     ("adjust_output", "adjust_output_c.txt", "adjust_output_rust.txt", "float"),
     ("reassembled", "reassembled_c.txt", "reassembled_rust.txt", "float"),
+    # Only meaningful for float DWT (-t 0): dumped after each of the inverse
+    # 9/7 lifting's 3 levels finishes (levels=3 is fixed), coarsest first.
+    # level0's post-state is the same array post_idwt already dumps, so
+    # there's no separate post_idwt_level0 file -- see lifting_97f.c /
+    # lifting97f.rs. Added to bisect exactly which level first introduces
+    # the known 1-ULP gcc/rustc rounding divergence (COMPATIBILITY_REPORT.md
+    # §3.3): previously reassembled matched but post_idwt didn't, with no
+    # visibility into which of the 3 levels' lifting calls was responsible.
+    ("post_idwt_level2", "post_idwt_level2_c.txt", "post_idwt_level2_rust.txt", "float"),
+    ("post_idwt_level1", "post_idwt_level1_c.txt", "post_idwt_level1_rust.txt", "float"),
     ("post_idwt", "post_idwt_c.txt", "post_idwt_rust.txt", "float"),
 ]
 

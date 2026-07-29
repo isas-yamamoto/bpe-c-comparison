@@ -293,6 +293,28 @@ void lifting_f97_2D(float **rows,
 	
 			for (y = 0; y < h; y++)
 				inversef97f(rows[y], w);
+
+#ifdef BPE_TRACE
+			/* l==0's post-state is already covered by the post_idwt seam
+			 * (dumped by the caller right after this function returns), so
+			 * only the coarser intermediate levels need a dump here. */
+			if (l != 0) {
+				char *trace_dir = getenv("BPE_TRACE_DIR");
+				if (trace_dir) {
+					char path[512];
+					FILE *tf;
+					int ti, tj;
+					snprintf(path, sizeof(path), "%s/post_idwt_level%d_c.txt", trace_dir, l);
+					tf = fopen(path, "w");
+					if (tf) {
+						for (ti = 0; ti < ImgRows; ti++)
+							for (tj = 0; tj < ImgCols; tj++)
+								fprintf(tf, "%.9e\n", rows[ti][tj]);
+						fclose(tf);
+					}
+				}
+			}
+#endif
     	}
 	}
 
