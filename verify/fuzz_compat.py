@@ -13,13 +13,14 @@ generated pixel content, and runs the exact same encode -> byte-compare
 does for its curated cases -- just at whatever scale time budget allows,
 instead of a fixed list.
 
-Deliberately integer-DWT only (-t 1, the actual production default): float
-DWT (-t 0) decode has a known, already-quantified ~1-ULP residual coming
-from a gcc/rustc floating-point rounding difference, not a real
-incompatibility (see COMPATIBILITY_REPORT.md §3.3). Fuzzing it would
-mostly generate known-issue noise rather than new signal. Pass
---dwt-type 0 or --dwt-type both to opt into exploring it anyway (e.g. to
-gather more data on how often the residual surfaces).
+Covers both DWT types by default (--dwt-type both). float DWT (-t 0)
+decode used to have a ~1-ULP residual difference from inverse_lifting97f
+converting each operand to f64 before adding instead of after (matching
+C's actual per-operator conversion rules); once that was root-caused and
+fixed, this stopped being "known-issue noise" and became a real thing
+worth fuzzing like anything else (see COMPATIBILITY_REPORT.md §3.3).
+Pass --dwt-type 1 to restrict to the integer path only (e.g. to isolate
+whether a future failure is DWT-type-specific).
 
 Every case is fully reproducible without needing to replay the RNG: on
 the first mismatch, the exact parameters (not just a seed) are printed,
@@ -188,7 +189,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--iterations", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--dwt-type", choices=["0", "1", "both"], default="1")
+    ap.add_argument("--dwt-type", choices=["0", "1", "both"], default="both")
     ap.add_argument("--max-dim", type=int, default=200)
     ap.add_argument("--keep-failures", type=Path, default=ROOT / "verify" / "fuzz_failures")
     args = ap.parse_args()

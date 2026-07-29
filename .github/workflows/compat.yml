@@ -92,7 +92,7 @@ jobs:
       # Randomly seeded (not the fixed seed=0 the PR-gating smoke test uses)
       # so each weekly run explores a fresh slice of the input space instead
       # of re-checking the same 5000 cases every time.
-      - name: randomized fuzz, integer DWT
+      - name: randomized fuzz, both DWT types
         run: verify/fuzz_compat.py --iterations 5000 --seed $RANDOM --max-dim 300
 
       - name: upload fuzz failure repros on failure
