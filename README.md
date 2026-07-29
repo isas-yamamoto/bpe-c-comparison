@@ -42,7 +42,7 @@ verify/fuzz_compat.py --iterations 500    # randomized fuzz test (optional, repr
 
 ## Real mismatches found so far
 
-A float DWT rounding error and two integer-width bugs in DPCM DC mapping were found and fixed. See "Discovered mismatches and their resolution" in [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md) for the detailed root-cause analysis.
+A float DWT rounding error and two integer-width bugs in DPCM DC mapping were found and fixed. See "Discovered mismatches and their resolution" in [INVESTIGATION_LOG.md](INVESTIGATION_LOG.md) for the detailed root-cause analysis.
 
 ## License
 

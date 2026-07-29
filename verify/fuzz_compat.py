@@ -18,7 +18,7 @@ decode used to have a ~1-ULP residual difference from inverse_lifting97f
 converting each operand to f64 before adding instead of after (matching
 C's actual per-operator conversion rules); once that was root-caused and
 fixed, this stopped being "known-issue noise" and became a real thing
-worth fuzzing like anything else (see COMPATIBILITY_REPORT.md §3.3).
+worth fuzzing like anything else (see INVESTIGATION_LOG.md §3.3).
 Pass --dwt-type 1 to restrict to the integer path only (e.g. to isolate
 whether a future failure is DWT-type-specific).
 

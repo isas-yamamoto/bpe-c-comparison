@@ -20,11 +20,13 @@ git -C bpe-rs log -1 --format='%H'       # bpe-rs's commit
 
 - **Byte compatibility**: the result of `verify/run_compat.sh --include-slow` (e.g. `166/166 PASS`)
 - **Function-level**: the result of `verify/run_unit_vectors.py` (e.g. `6/6 PASS`)
-- **Line/branch coverage**: the raw value from `COMPATIBILITY_REPORT.md` §4, and the effective-coverage value with confirmed dead code excluded
+- **Line/branch coverage**: the raw value from `INVESTIGATION_LOG.md` §4, and the effective-coverage value with confirmed dead code excluded
 - **Known differences**: whatever known differences remain at that point (see `COMPATIBILITY_REPORT.md` §0). Changes here are visible over time
 - **Notes**: mismatches newly found in that round, fixes, coverage improvements, etc. — hints for the next person tracing the diff
 
 **Note (2026-07-29)**: on 2026-07-29, bpe-rs's commit history was rebased and force-pushed (details are in the session transcript; there's no dedicated record in this file). As a result, the bpe-rs commit hashes cited by earlier rows (`4ca3eb4`, `e91f677`, `fb494d3`) can no longer be resolved (they don't exist on GitHub). Their value as a record of what actually existed and was correct at the time is unchanged, so the past rows themselves haven't been rewritten — be aware of this if you try to open those hashes directly. The bpe-rs commits referenced by each row from `e0a492f` onward may also have been replaced by different hashes due to the rewrite (this file records the hash as of the time it was appended, and hasn't been retroactively traced/corrected).
+
+**Note (2026-07-29, later the same day)**: `COMPATIBILITY_REPORT.md` was split into two files — the current-state reference stayed at that name (§0, §1, §2, §5, §6), and the chronological investigation log (§3, §4, §7) moved out to a new companion file, `INVESTIGATION_LOG.md`, keeping the same section numbers. Rows below that cite a bare "§3"/"§4"/"§7" (without a filename) were written before this split and meant "in `COMPATIBILITY_REPORT.md`" at the time — those sections now live in `INVESTIGATION_LOG.md` instead. Not retroactively rewritten in the rows themselves, same policy as the note above.
 
 ## History
 

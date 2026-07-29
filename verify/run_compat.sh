@@ -284,7 +284,7 @@ run_from_manifest signed16_32 0 1.0 256 1 "_decodeflip_float" "" 1
 #
 # This sweep is what found the float-DWT inverse-lifting double-vs-float
 # precision bug originally fixed in bpe-rs's inverse_lifting97f (see
-# COMPATIBILITY_REPORT.md §3.1/§3.3). Two rate values (0.1 and 0.75) kept
+# INVESTIGATION_LOG.md §3.1/§3.3). Two rate values (0.1 and 0.75) kept
 # diverging by a single pixel under -t 0 even after that fix, previously
 # attributed to an unactionable gcc/rustc float64 rounding difference and
 # excluded from the -t 0 loop below. That diagnosis turned out to be
@@ -309,7 +309,7 @@ done
 # zero-coefficient branches (and the DC/AC gaggle coding around them) far
 # more than baseline_256 alone -- confirmed via gcov: adding this sweep
 # raised AdjustOutPut.c's branch coverage from ~42% to ~50% (see
-# COMPATIBILITY_REPORT.md §4).
+# INVESTIGATION_LOG.md §4).
 for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest checkerboard_256 1 "$rate" 64 0 "_ratesweep_cb_t1_r${rate}"
 done
@@ -320,7 +320,7 @@ done
 # Same sweep again, against deterministic pseudo-random noise: a third,
 # independent coefficient-distribution shape (no periodicity like
 # checkerboard, no monotonic structure like a gradient). Raised
-# AdjustOutPut.c further: ~50%->~58% branches (see COMPATIBILITY_REPORT.md
+# AdjustOutPut.c further: ~50%->~58% branches (see INVESTIGATION_LOG.md
 # §4). Three -t 0 rate values (0.2, 1.5, 2.0) used to hit the same
 # inverse_lifting97f precision bug as baseline_256's 0.1/0.75 -- fixed for
 # real now (see the comment on the baseline_256 sweep above), so all ten
@@ -341,7 +341,7 @@ done
 # rate. Varying segment size itself (not just rate) turned out to reach
 # several checkpoints the rate-only sweeps above never did (raised
 # StagesCodingGaggles.c from 85.93%/81.56% to 90.74%/84.93%, see
-# COMPATIBILITY_REPORT.md §4). SEGMENT_S_MIN (global.h) is 16 blocks, so that
+# INVESTIGATION_LOG.md §4). SEGMENT_S_MIN (global.h) is 16 blocks, so that
 # floor plus a spread up to 48 is used here; the rate list is the minimum
 # empirically confirmed to avoid BPE_RATE_ERROR at every segment size below
 # (smaller segments need a higher rate to fit the segment header at all).

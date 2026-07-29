@@ -42,7 +42,7 @@ verify/fuzz_compat.py --iterations 500    # ランダム化fuzz試験（任意�
 
 ## これまでに見つかった実際の不一致
 
-float DWT の丸め誤差、DPCM DC マッピングの整数幅バグ2件を発見・修正済み。詳細な原因分析は [COMPATIBILITY_REPORT.ja.md](COMPATIBILITY_REPORT.ja.md) の「発見した不一致とその対応」を参照。
+float DWT の丸め誤差、DPCM DC マッピングの整数幅バグ2件を発見・修正済み。詳細な原因分析は [INVESTIGATION_LOG.ja.md](INVESTIGATION_LOG.ja.md) の「発見した不一致とその対応」を参照。
 
 ## ライセンス
 

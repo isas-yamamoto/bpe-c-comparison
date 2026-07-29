@@ -44,13 +44,13 @@ NOTE on floating precision (decode-side seams only): these compare `f32`
 values numerically, not as exact text (C's `%.9e` and Rust's `{:.9e}`
 format exponents differently -- `e+01` vs `e1` -- so a naive text diff
 would flag every line as different even when numerically identical). Exact
-numeric equality is the default and usually holds, but a rate-limited
-float-DWT (`-t 0`) decode can occasionally hit a genuine 1-ULP difference
-between gcc's and rustc's floating-point rounding of an identical,
-identically-ordered expression -- confirmed not to be a logic bug (see
-COMPATIBILITY_REPORT.md). Pass --float-tol to allow a small absolute
-tolerance if you're specifically chasing a known-residual case like that,
-rather than a real divergence.
+numeric equality is the default and always holds now: a rate-limited
+float-DWT (`-t 0`) decode used to occasionally hit a 1-ULP difference here,
+which was originally misdiagnosed as an unresolvable gcc/rustc rounding
+difference but turned out to be a real f32-vs-f64 addition-order bug in
+inverse_lifting97f (see INVESTIGATION_LOG.md §3.3), since fixed. --float-tol
+is kept around for chasing any future divergence of this kind, not because
+one is currently expected.
 
 Usage: verify/compare_traces.py <raw_image> <width> <height> [--float-tol=N] [bpe args...]
 Example: verify/compare_traces.py testdata/baseline_256.raw 256 256 -t 0 -r 0.1 -s 64
@@ -77,7 +77,7 @@ DECODE_SEAMS = [
     # level0's post-state is the same array post_idwt already dumps, so
     # there's no separate post_idwt_level0 file -- see lifting_97f.c /
     # lifting97f.rs. Added to bisect what used to be a 1-ULP gcc/rustc
-    # decode divergence (COMPATIBILITY_REPORT.md §3.3): previously
+    # decode divergence (INVESTIGATION_LOG.md §3.3): previously
     # reassembled matched but post_idwt didn't, with no visibility into
     # which of the 3 levels' lifting calls was responsible. That divergence
     # is fixed now (turned out to be a real f32-vs-f64 addition-order bug

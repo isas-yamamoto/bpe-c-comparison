@@ -83,7 +83,7 @@ def make_single_bump(bx, by, base=128, bump=1):
     # pixel sits controls the resulting max-AC-coefficient magnitude
     # (BitDepthAC_5Bits) after the wavelet transform -- and thus which of
     # ACDepthEncoder/ACDepthDecoder's N-dependent branches (AC_BitPlaneCoding.c)
-    # get exercised. Found empirically (see COMPATIBILITY_REPORT.md): an
+    # get exercised. Found empirically (see INVESTIGATION_LOG.md): an
     # interior bump lands on BitDepthAC==2 (N==2), while a bump at the image's
     # very last pixel lands on BitDepthAC==1 (the single-bit-plane path that
     # bypasses ACDepthEncoder/Decoder entirely).
@@ -130,7 +130,7 @@ def sparse_bump_per_block(background, bump, block_size=8):
     # (needs BitDepthDC > 3 but BitDepthDC - (1+(BitDepthAC>>1)) <= 1, i.e. a
     # high-AC/low-DC combination that neither a flat image nor a full-swing
     # checkerboard -- where AC and DC bit-depth track each other too closely
-    # -- ever reaches). See COMPATIBILITY_REPORT.md.
+    # -- ever reaches). See INVESTIGATION_LOG.md.
     def gen(x, y):
         if x % block_size == block_size // 2 and y % block_size == block_size // 2:
             return bump
@@ -252,7 +252,7 @@ def main():
     # entirely different single-bit-plane path when BitDepthAC_5Bits==1. Both
     # were unreachable by the existing baseline/checkerboard/noise images,
     # which all land on N==3 or N==4 (BitDepthAC in 4-15). See
-    # COMPATIBILITY_REPORT.md for how these specific values were found. ---
+    # INVESTIGATION_LOG.md for how these specific values were found. ---
     cases.append(
         build_case(
             "ac_depth1_64",
@@ -289,7 +289,7 @@ def main():
     # around 12-13, giving N in the 8-10 range even under quantization).
     # Found empirically: a near-black constant image drops BitDepthDC low
     # enough that a modest lossy rate (which sets QuantizationFactorQ) pushes
-    # N down into 2-4. See COMPATIBILITY_REPORT.md for the search. ---
+    # N down into 2-4. See INVESTIGATION_LOG.md for the search. ---
     cases.append(
         build_case(
             "dc_depth_n2_64",
@@ -352,7 +352,7 @@ def main():
     # a constant image at the representable extreme (127/-128 for signed 8-bit,
     # 65535 for unsigned 16-bit, 32767/-32768 for signed 16-bit), decoded via
     # float DWT, occasionally reconstructs a hair outside the valid range due
-    # to the float DWT's known 1-ULP-scale rounding (see COMPATIBILITY_REPORT.md
+    # to the float DWT's known 1-ULP-scale rounding (see INVESTIGATION_LOG.md
     # §3.3) -- the only way to reach these defensive clamps. Integer DWT
     # reconstructs exactly and never needs them. ---
     cases.append(build_case("signed8_max_64", 64, 64, generator=const(127), note="use with -g 1 -t 0 -r 0: signed 8-bit max"))
