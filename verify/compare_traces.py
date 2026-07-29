@@ -76,10 +76,13 @@ DECODE_SEAMS = [
     # 9/7 lifting's 3 levels finishes (levels=3 is fixed), coarsest first.
     # level0's post-state is the same array post_idwt already dumps, so
     # there's no separate post_idwt_level0 file -- see lifting_97f.c /
-    # lifting97f.rs. Added to bisect exactly which level first introduces
-    # the known 1-ULP gcc/rustc rounding divergence (COMPATIBILITY_REPORT.md
-    # §3.3): previously reassembled matched but post_idwt didn't, with no
-    # visibility into which of the 3 levels' lifting calls was responsible.
+    # lifting97f.rs. Added to bisect what used to be a 1-ULP gcc/rustc
+    # decode divergence (COMPATIBILITY_REPORT.md §3.3): previously
+    # reassembled matched but post_idwt didn't, with no visibility into
+    # which of the 3 levels' lifting calls was responsible. That divergence
+    # is fixed now (turned out to be a real f32-vs-f64 addition-order bug
+    # in inverse_lifting97f, not a compiler difference), but these seams
+    # stay as general-purpose infrastructure for the next such investigation.
     ("post_idwt_level2", "post_idwt_level2_c.txt", "post_idwt_level2_rust.txt", "float"),
     ("post_idwt_level1", "post_idwt_level1_c.txt", "post_idwt_level1_rust.txt", "float"),
     ("post_idwt", "post_idwt_c.txt", "post_idwt_rust.txt", "float"),

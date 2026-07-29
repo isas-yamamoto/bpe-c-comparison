@@ -290,7 +290,7 @@ void lifting_f97_2D(float **rows,
 			}
 
 			/* Rows. */
-	
+
 			for (y = 0; y < h; y++)
 				inversef97f(rows[y], w);
 

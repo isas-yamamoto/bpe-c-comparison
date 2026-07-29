@@ -274,20 +274,22 @@ run_from_manifest signed16_32 0 1.0 256 1 "_decodeflip_float" "" 1
 # sweep without that unrelated failure mode getting in the way.)
 #
 # This sweep is what found the float-DWT inverse-lifting double-vs-float
-# precision bug fixed in bpe-rs's inverse_lifting97f (see
-# COMPATIBILITY_REPORT.md). Two rate values (0.1 and 0.75) still diverge by
-# a single pixel under -t 0 even after that fix: an isolated probe traced it
-# to a genuine 1-ULP difference between gcc's and rustc's float64 rounding
-# of an identical, identically-ordered expression over identical inputs --
-# not a logic bug, and not something either compiler's IEEE-754 conformance
-# obligates it to avoid. They're excluded from the -t 0 loop below (still
-# run under -t 1, where integer arithmetic has no such ambiguity) rather
-# than left in to redden CI on a non-actionable, deterministic-but-uncontrollable
-# difference; see COMPATIBILITY_REPORT.md for the full writeup.
+# precision bug originally fixed in bpe-rs's inverse_lifting97f (see
+# COMPATIBILITY_REPORT.md §3.1/§3.3). Two rate values (0.1 and 0.75) kept
+# diverging by a single pixel under -t 0 even after that fix, previously
+# attributed to an unactionable gcc/rustc float64 rounding difference and
+# excluded from the -t 0 loop below. That diagnosis turned out to be
+# incomplete: level-granularity tracing (verify/compare_traces.py's
+# post_idwt_level* seams) localized the divergence to inverse_lifting97f's
+# pairwise sums (e.g. `r[1] + r[-1]`), which C computes -- and rounds -- in
+# f32 *before* promoting to f64 for the subsequent multiply, whereas the
+# port was converting each operand to f64 *before* adding (a strictly more
+# precise, and therefore different, computation). Fixed for real; both
+# rates now run alongside the rest.
 for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest baseline_256 1 "$rate" 64 0 "_ratesweep_t1_r${rate}"
 done
-for rate in 0.05 0.2 0.3 0.5 1.0 1.5 2.0 3.0; do
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest baseline_256 0 "$rate" 64 0 "_ratesweep_t0_r${rate}"
 done
 
@@ -298,8 +300,7 @@ done
 # zero-coefficient branches (and the DC/AC gaggle coding around them) far
 # more than baseline_256 alone -- confirmed via gcov: adding this sweep
 # raised AdjustOutPut.c's branch coverage from ~42% to ~50% (see
-# COMPATIBILITY_REPORT.md §4). No divergence found against baseline_256's
-# known-residual rates (0.1/0.75 under -t 0), so all ten values run here.
+# COMPATIBILITY_REPORT.md §4).
 for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest checkerboard_256 1 "$rate" 64 0 "_ratesweep_cb_t1_r${rate}"
 done
@@ -311,14 +312,14 @@ done
 # independent coefficient-distribution shape (no periodicity like
 # checkerboard, no monotonic structure like a gradient). Raised
 # AdjustOutPut.c further: ~50%->~58% branches (see COMPATIBILITY_REPORT.md
-# §4). Three -t 0 rate values (0.2, 1.5, 2.0) hit the same known-residual
-# 1-ULP cross-compiler float difference as baseline_256's 0.1/0.75 (§3.3) --
-# confirmed by inspection: encode bytes match exactly, decode differs by 1
-# in a single pixel. Excluded here for the same reason those are.
+# §4). Three -t 0 rate values (0.2, 1.5, 2.0) used to hit the same
+# inverse_lifting97f precision bug as baseline_256's 0.1/0.75 -- fixed for
+# real now (see the comment on the baseline_256 sweep above), so all ten
+# values run here too.
 for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest noise_256 1 "$rate" 64 0 "_ratesweep_ns_t1_r${rate}"
 done
-for rate in 0.05 0.1 0.3 0.5 0.75 1.0 3.0; do
+for rate in 0.05 0.1 0.2 0.3 0.5 0.75 1.0 1.5 2.0 3.0; do
   run_from_manifest noise_256 0 "$rate" 64 0 "_ratesweep_ns_t0_r${rate}"
 done
 
@@ -336,14 +337,11 @@ done
 # empirically confirmed to avoid BPE_RATE_ERROR at every segment size below
 # (smaller segments need a higher rate to fit the segment header at all).
 #
-# Integer DWT (-t 1) only: trying -t 0 (float) across this same grid hit the
-# known cross-compiler 1-ULP residual (§3.3) in the majority of combos (11 of
-# 20 for noise_256 alone) -- confirmed via compare_traces.py that adjust_output
-# matches exactly and the single-pixel divergence appears only after
-# post_idwt, the same signature as the already-documented residual. Rather
-# than hardcode a long exclusion list, -t 0 is simply left out of this sweep;
-# it isn't needed for StagesCodingGaggles.c's INTEGER_WAVELET-gated branches
-# anyway, which is what this sweep specifically targets.
+# Integer DWT (-t 1) only: -t 0 (float) isn't needed for
+# StagesCodingGaggles.c's INTEGER_WAVELET-gated branches, which is what this
+# sweep specifically targets, so it's left out here regardless of whether
+# float DWT itself is byte-exact (it now is, see the inverse_lifting97f fix
+# noted on the baseline_256 rate sweep above).
 for img in baseline_256 checkerboard_256 noise_256; do
   for seg in 16 20 24 32 48; do
     for rate in 0.5 0.8 1.2 2.0; do
