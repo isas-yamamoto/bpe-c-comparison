@@ -41,9 +41,11 @@ export CARGO_TARGET_DIR="$RUST_DIR/target"
 RUST_BIN="$RUST_DIR/target/release/bpe"
 
 echo "== generating test vectors =="
-gen_args=()
-[ "$INCLUDE_SLOW" = 1 ] && gen_args+=(--include-slow)
-python3 "$ROOT/verify/gen_vectors.py" "${gen_args[@]}"
+if [ "$INCLUDE_SLOW" = 1 ]; then
+  python3 "$ROOT/verify/gen_vectors.py" --include-slow
+else
+  python3 "$ROOT/verify/gen_vectors.py"
+fi
 
 MANIFEST="$TESTDATA/manifest.json"
 
