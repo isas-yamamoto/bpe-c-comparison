@@ -31,6 +31,7 @@ This report used to mix "what the current state is" with "how we investigated to
 | The list of bugs found and their current status | INVESTIGATION_LOG.md §3.8 Resolution summary (table) | §3.1–§3.7, §3.9, §3.10 are the investigation history/detail behind each individual discovery — if the table isn't enough, go to the relevant subsection |
 | How much of the C code is actually exercised (numbers) | The three tables in INVESTIGATION_LOG.md §4: "Final results," "Reachability breakdown," "Branch reachability breakdown" | The other subsections of §4 are investigation history (skippable) |
 | What's left to do | INVESTIGATION_LOG.md §7 Future work | Strikethrough = resolved |
+| Where precision was traded away for compatibility | [PRECISION_TRADEOFFS.md](PRECISION_TRADEOFFS.md) | Concrete spots — float rounding/operation order, integer wraparound, etc. — where matching C won out over a mathematically "more correct"/more precise implementation |
 
 §0, §1, §2, §5, §6 (this file) describe "the current state," so reading them in full each time is low-cost. INVESTIGATION_LOG.md's §3, §4, §7 are long, but as the table above says, **picking out just the conclusion (the tables) means you don't need to follow the history** — the history is kept as an audit trail, not something readers are expected to read through every time.
 
