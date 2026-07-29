@@ -102,7 +102,7 @@ jobs:
           bpe_rs_short=$(echo "$bpe_rs_sha" | cut -c1-12)
           branch="${{ steps.branch.outputs.name }}"
 
-          row="| $date | \`$this_repo_sha\` (pre-bump) | \`$bpe_rs_short\` | 166/166 PASS (\`--include-slow\`) | PASS | — | — | (前回の履歴と同一のはず、再計測なし) | 自動ポーリングによるbpe-rs追従。coverageは自動ラウンドでは再計測しないため \`verify/run_compat.sh --include-slow\` \`verify/run_unit_vectors.py\` のPASSのみ記録 |"
+          row="| $date | \`$this_repo_sha\` (pre-bump) | \`$bpe_rs_short\` | 178/178 PASS (\`--include-slow\`) | PASS | — | — | (should be the same as last time, not re-measured) | Automatic bpe-rs follow-up poll. Coverage isn't re-measured for automatic rounds, so only the PASS of \`verify/run_compat.sh --include-slow\` / \`verify/run_unit_vectors.py\` is recorded |"
           echo "$row" >> verify/results/history.md
 
           git config user.name "github-actions[bot]"
