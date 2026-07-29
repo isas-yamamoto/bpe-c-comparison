@@ -18,10 +18,17 @@ TESTDATA="$ROOT/testdata"
 # 100-byte CodingOutputFile/StringBuffer buffers in main.c (StringBuffer[100]
 # gets a strcpy of the full -o path followed by strcat("En.txt"/".txt"),
 # which glibc's _FORTIFY_SOURCE catches as "*** buffer overflow detected ***"
-# once the path exceeds ~93-96 chars). Input raw files stay under $TESTDATA
-# since gen_vectors.py writes there and their paths are only ever read, not
-# written into that fixed buffer.
-WORK="$(mktemp -d -t bpe-compat-work.XXXXXX)"
+# once the path exceeds ~93-96 chars; on macOS the same overflow trips
+# Apple libc's own _FORTIFY_SOURCE check instead, surfacing as "Trace/BPT
+# trap: 5" (SIGTRAP) rather than glibc's message). Input raw files stay
+# under $TESTDATA since gen_vectors.py writes there and their paths are
+# only ever read, not written into that fixed buffer.
+#
+# Deliberately anchored at /tmp, not `mktemp -t` (which resolves against
+# $TMPDIR): $TMPDIR defaults to a short path on Linux but to a long,
+# per-session one on macOS (/var/folders/.../T/...), long enough by
+# itself to overflow the same buffer this comment is about.
+WORK="$(mktemp -d /tmp/bpe-compat-work.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 C_SRC="$ROOT/original/source"
 RUST_DIR="$ROOT/bpe-rs"

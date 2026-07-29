@@ -205,7 +205,12 @@ def main():
     for i in range(args.iterations):
         rng = random.Random(f"{args.seed}:{i}")
         case = random_case(rng, args.max_dim, dwt_choices)
-        with tempfile.TemporaryDirectory(prefix="bpe-fuzz-") as work_str:
+        # dir="/tmp": macOS's default $TMPDIR is a long, per-session path
+        # (/var/folders/.../T/...) long enough by itself to overflow the C
+        # reference's fixed 100-byte StringBuffer (see run_compat.sh's
+        # comment on the same issue) once run_one()'s -o path is built from
+        # it -- surfaces there as "Trace/BPT trap: 5" (SIGTRAP).
+        with tempfile.TemporaryDirectory(prefix="bpe-fuzz-", dir="/tmp") as work_str:
             work = Path(work_str)
             raw_path = work / "in.raw"
             write_raw(raw_path, case, rng)

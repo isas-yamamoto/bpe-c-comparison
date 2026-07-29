@@ -132,7 +132,10 @@ def main():
     c_bin = C_SRC / "bpe_trace"
     rust_bin = RUST_DIR / "target" / "release" / "bpe"
 
-    with tempfile.TemporaryDirectory() as trace_dir:
+    # dir="/tmp": see run_compat.sh's comment -- macOS's default $TMPDIR is
+    # long enough on its own to overflow the C reference's fixed 100-byte
+    # StringBuffer once c_bpe below is passed as a -o path.
+    with tempfile.TemporaryDirectory(dir="/tmp") as trace_dir:
         env = {"BPE_TRACE_DIR": trace_dir, **os.environ}
         common = ["-w", width, "-h", height] + extra_args
         c_bpe = f"{trace_dir}/out_c.bpe"
