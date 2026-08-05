@@ -1,4 +1,4 @@
-# compare — CCSDS BPE C/Rust 互換性検証リポジトリ
+# bpe-c-comparison — CCSDS BPE C/Rust 互換性検証リポジトリ
 
 [English](README.md)
 

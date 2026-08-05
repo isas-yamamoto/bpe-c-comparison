@@ -1,4 +1,4 @@
-# compare — CCSDS BPE C/Rust Compatibility Verification Repository
+# bpe-c-comparison — CCSDS BPE C/Rust Compatibility Verification Repository
 
 [日本語版](README.ja.md)
 
