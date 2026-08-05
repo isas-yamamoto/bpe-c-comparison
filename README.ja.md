@@ -14,6 +14,8 @@
 
 詳細な根拠・試験内容・カバレッジ評価は **[COMPATIBILITY_REPORT.ja.md](COMPATIBILITY_REPORT.ja.md)** を参照。過去のフル検証ラウンドとの比較・推移は **[verify/results/history.ja.md](verify/results/history.ja.md)** に記録している。
 
+bpe-rs は**既定で**Cとビット単位で互換——本リポジトリの検証もこの既定挙動を対象にしている。オプトアウト用のCLIフラグ`--fix-c-quirks`もあり、Cの整数・浮動小数点上の癖よりも修正済み・より精度の高い挙動を求める呼び出し側向け（ただしC参照実装との相互運用は失われる）。このフラグが具体的にどの2箇所を変えるかは **[PRECISION_TRADEOFFS.ja.md](PRECISION_TRADEOFFS.ja.md)** を参照。
+
 ## 構成
 
 ```

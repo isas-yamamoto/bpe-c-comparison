@@ -14,6 +14,8 @@ A repository that continuously verifies compatibility between `original/` (the C
 
 For the detailed rationale, test contents, and coverage evaluation, see **[COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md)**. Comparisons and trends across past full-verification rounds are recorded in **[verify/results/history.md](verify/results/history.md)**.
 
+bpe-rs is bit-for-bit C-compatible **by default** — that's what this repo's verification exercises. It also has an opt-out `--fix-c-quirks` CLI flag for callers who'd rather have the corrected/more precise behavior than C's integer and floating-point quirks (at the cost of no longer interoperating with the C reference implementation). See **[PRECISION_TRADEOFFS.md](PRECISION_TRADEOFFS.md)** for exactly which two behaviors that flag changes.
+
 ## Layout
 
 ```
