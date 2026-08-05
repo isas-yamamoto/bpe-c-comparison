@@ -28,6 +28,17 @@ git -C bpe-rs log -1 --format='%H'       # bpe-rsのcommit
 
 **注記（2026-07-29、同日後刻）**: `COMPATIBILITY_REPORT.ja.md`を2ファイルに分割した——現状のリファレンス（§0・§1・§2・§5・§6）は同じ名前のまま残り、時系列の調査ログ（§3・§4・§7）は新しい伴侶ファイル`INVESTIGATION_LOG.ja.md`に節番号を維持したまま移動した。以下の行でファイル名なしの裸の「§3」「§4」「§7」を引用している箇所は、この分割前に書かれたもので、当時は「`COMPATIBILITY_REPORT.ja.md`内」を意味していた——それらの節は現在`INVESTIGATION_LOG.ja.md`にある。上記の注記と同じ方針で、行自体は遡って書き換えていない。
 
+**注記（2026-08-05）**: bpe-rsの履歴が2度目のforce pushを受けた（1度目は上記2026-07-29のrebase。今回はそれに続くcommitter identityの再書き換えで、本リポジトリのbpe-rsサブモジュールbumpコミット履歴から確認できる）。内容自体は変わっていない——各コミットのtreeハッシュが前後の履歴で1対1で一致しており、コード変更を伴わない純粋な履歴書き換えと確認済み。以下の行が引用するbpe-rsハッシュは解決不能になった。コミットメッセージの一致から対応する新ハッシュを追跡できたものを記す。
+
+| 旧ハッシュ（下記の引用） | 新ハッシュ | コミットメッセージ |
+|---|---|---|
+| `6b0e68e`（`cbe013c`の行） | `e85a306` | Remove the temporary column-pass diagnostic trace point |
+| `8ca894e`（同行の備考内で言及） | `0e7dbf1` | Fix inverse_lifting97f's precision: match C's per-operator conversion |
+| `bd861cc`（`0d27b04`の行） | `e85a306` | Remove the temporary column-pass diagnostic trace point（`6b0e68e`と同一コミット——`bd861cc`は1度目の書き換え後のハッシュ、`e85a306`は今回2度目の書き換え後のハッシュ） |
+| `758c895`（`9fd9a87`の行） | `2101631` | Add level-granularity trace dumps to the inverse 9/7 lifting（このハッシュは2026-07-29の書き換え時点で既に解決不能になっており、今回新たに壊れたものではない） |
+
+本リポジトリ自身のサブモジュールpinは`bd861cc`から`e85a306`へ更新済み（treeハッシュの一致により内容が同一であることを確認）。以下の過去の行自体は書き換えていない（上記の注記群と同じ方針）。
+
 ## 履歴
 
 | 日付 | 本リポジトリcommit | bpe-rsコミット | バイト一致 | 関数レベル | 行カバレッジ(生/実効) | 分岐カバレッジ(生/実効) | 既知差異 | 備考 |

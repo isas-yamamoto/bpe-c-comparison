@@ -28,6 +28,17 @@ git -C bpe-rs log -1 --format='%H'       # bpe-rs's commit
 
 **Note (2026-07-29, later the same day)**: `COMPATIBILITY_REPORT.md` was split into two files — the current-state reference stayed at that name (§0, §1, §2, §5, §6), and the chronological investigation log (§3, §4, §7) moved out to a new companion file, `INVESTIGATION_LOG.md`, keeping the same section numbers. Rows below that cite a bare "§3"/"§4"/"§7" (without a filename) were written before this split and meant "in `COMPATIBILITY_REPORT.md`" at the time — those sections now live in `INVESTIGATION_LOG.md` instead. Not retroactively rewritten in the rows themselves, same policy as the note above.
 
+**Note (2026-08-05)**: bpe-rs's history was force-pushed a second time (the first was the 2026-07-29 rebase noted above; this one rewrote committer identity again on top of that, per the `bpe-rs` submodule-bump commit history in this repo). Content is unchanged — every commit's tree hash matches its predecessor one-for-one — so this is a pure history rewrite, not a code change. The `bpe-rs` hashes cited in the rows below no longer resolve; where the corresponding new hash could be traced by matching commit message across both histories, it's given here:
+
+| Old hash (cited below) | New hash | Commit message |
+|---|---|---|
+| `6b0e68e` (row for `cbe013c`) | `e85a306` | Remove the temporary column-pass diagnostic trace point |
+| `8ca894e` (mentioned in that row's notes) | `0e7dbf1` | Fix inverse_lifting97f's precision: match C's per-operator conversion |
+| `bd861cc` (row for `0d27b04`) | `e85a306` | Remove the temporary column-pass diagnostic trace point (same commit as `6b0e68e` above — `bd861cc` was that commit's hash after the first rewrite, `e85a306` after this second one) |
+| `758c895` (row for `9fd9a87`) | `2101631` | Add level-granularity trace dumps to the inverse 9/7 lifting (this one was already unresolvable after the 2026-07-29 rewrite, not newly broken today) |
+
+This repo's own submodule pin has been bumped from `bd861cc` to `e85a306` accordingly (same content, confirmed by matching tree hashes). Past rows below aren't rewritten, same policy as the notes above.
+
 ## History
 
 | Date | This repo's commit | bpe-rs commit | Byte compatibility | Function-level | Line coverage (raw/effective) | Branch coverage (raw/effective) | Known differences | Notes |
