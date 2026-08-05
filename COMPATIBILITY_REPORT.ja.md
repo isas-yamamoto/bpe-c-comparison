@@ -4,7 +4,7 @@
 
 `original/`（U. Nebraska 製 CCSDS 122.0 Bit Plane Encoder、Aaron Kiely 氏によるバグ修正版 C 参照実装）と `bpe-rs/`（その Rust 移植版）が互換であることを、どのような観点で・どう試験し・その結果何が分かったかをまとめる。試験ハーネスは `verify/` に、実行方法は [README.md](README.md) に記載している。
 
-作成時点のコミット: 本リポジトリ（[bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)）`a60d17e` 以降 / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `e85a306`。
+作成時点のコミット: 本リポジトリ（[bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)）`a60d17e` 以降 / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `b5348f4`。
 
 **スコープの定義**: 本レポートが検証する「互換性」は、CCSDS 122.0 の仕様書そのものへの適合ではなく、この特定のC参照実装（`original/source/`、Aaron Kiely 氏によるバグ修正版）の実際の挙動とのバイト互換である。参照実装自体に含まれる実装上の癖・タイプミスと見られる箇所（例: [INVESTIGATION_LOG.md](INVESTIGATION_LOG.md) §4で扱う`TypeC<<(1<<(3-i))`）も、仕様との整合性を検証・修正する対象ではなく、「Rust側が同じ挙動を再現できているか」の検証対象として扱っている——目的が参照実装の置き換えである以上、この方針は意図的な選択である。
 

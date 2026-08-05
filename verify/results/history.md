@@ -39,6 +39,16 @@ git -C bpe-rs log -1 --format='%H'       # bpe-rs's commit
 
 This repo's own submodule pin has been bumped from `bd861cc` to `e85a306` accordingly (same content, confirmed by matching tree hashes). Past rows below aren't rewritten, same policy as the notes above.
 
+**Note (2026-08-05, later the same day)**: bpe-rs was force-pushed a third time. Content is unchanged (tree hashes match), and this time only the 8 most recent commits got new hashes — everything from `c1d906b` ("Merge pull request #1...") on back is untouched. That means every hash in the table above that was already unresolvable stays unresolvable, plus these newly-broken ones from the previous note's mapping table:
+
+| Old hash (from the mapping table above) | New hash | Commit message |
+|---|---|---|
+| `e85a306` | `b5348f4` | Remove the temporary column-pass diagnostic trace point |
+| `0e7dbf1` | `b55a0e5` | Fix inverse_lifting97f's precision: match C's per-operator conversion |
+| `2101631` | `e34bb30` | Add level-granularity trace dumps to the inverse 9/7 lifting |
+
+This repo's submodule pin has been bumped from `e85a306` to `b5348f4` accordingly. Past rows below aren't rewritten, same policy as the notes above.
+
 ## History
 
 | Date | This repo's commit | bpe-rs commit | Byte compatibility | Function-level | Line coverage (raw/effective) | Branch coverage (raw/effective) | Known differences | Notes |

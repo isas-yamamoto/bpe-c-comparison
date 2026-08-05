@@ -39,6 +39,16 @@ git -C bpe-rs log -1 --format='%H'       # bpe-rsのcommit
 
 本リポジトリ自身のサブモジュールpinは`bd861cc`から`e85a306`へ更新済み（treeハッシュの一致により内容が同一であることを確認）。以下の過去の行自体は書き換えていない（上記の注記群と同じ方針）。
 
+**注記（2026-08-05、同日後刻）**: bpe-rsが3度目のforce pushを受けた。内容は変わっていない（treeハッシュ一致）。今回は直近8コミットのみハッシュが変わり、`c1d906b`（"Merge pull request #1..."）以前は無変更。つまり上表で既に解決不能だったハッシュはそのまま解決不能、加えて前回の注記の対応表のうち以下が新たに解決不能になった。
+
+| 旧ハッシュ（上記対応表より） | 新ハッシュ | コミットメッセージ |
+|---|---|---|
+| `e85a306` | `b5348f4` | Remove the temporary column-pass diagnostic trace point |
+| `0e7dbf1` | `b55a0e5` | Fix inverse_lifting97f's precision: match C's per-operator conversion |
+| `2101631` | `e34bb30` | Add level-granularity trace dumps to the inverse 9/7 lifting |
+
+本リポジトリのサブモジュールpinは`e85a306`から`b5348f4`へ更新済み。以下の過去の行自体は書き換えていない（上記の注記群と同じ方針）。
+
 ## 履歴
 
 | 日付 | 本リポジトリcommit | bpe-rsコミット | バイト一致 | 関数レベル | 行カバレッジ(生/実効) | 分岐カバレッジ(生/実効) | 既知差異 | 備考 |

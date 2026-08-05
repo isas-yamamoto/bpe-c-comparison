@@ -4,7 +4,7 @@
 
 This report summarizes, for the compatibility between `original/` (the C reference implementation of CCSDS 122.0 Bit Plane Encoder, bug-fixed version by Aaron Kiely) and `bpe-rs/` (its Rust port), what perspectives were used, how it was tested, and what was found. The test harness lives in `verify/`; how to run it is documented in [README.md](README.md).
 
-Commits as of writing: this repository ([bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)) from `a60d17e` onward / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `e85a306`.
+Commits as of writing: this repository ([bpe-c-comparison](https://github.com/isas-yamamoto/bpe-c-comparison)) from `a60d17e` onward / [bpe-rs](https://github.com/isas-yamamoto/bpe-rs) `b5348f4`.
 
 **Scope definition**: the "compatibility" this report verifies is byte compatibility with this specific C reference implementation's (`original/source/`, the bug-fixed version by Aaron Kiely) actual behavior — not conformance to the CCSDS 122.0 spec itself. Quirks and apparent typos in the reference implementation's own code (e.g. `TypeC<<(1<<(3-i))`, covered in [INVESTIGATION_LOG.md](INVESTIGATION_LOG.md) §4) are likewise not treated as things to verify against the spec and fix, but as targets for "does the Rust side reproduce the same behavior" — a deliberate choice, given the goal is to replace the reference implementation.
 
