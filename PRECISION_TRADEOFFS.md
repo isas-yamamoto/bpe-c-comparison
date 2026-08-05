@@ -4,14 +4,16 @@
 
 As defined at the top of [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md), the "compatibility" this project verifies is byte-for-byte agreement with this specific C reference implementation's (`original/source/`) actual behavior — not conformance to the CCSDS 122.0 spec. This file lists the concrete places where that principle showed up in code: where a mathematically "more correct" or "more precise" implementation was deliberately rejected in favor of matching C's behavior, including cases where C's own result is the less precise one. The goal is to replace the reference implementation with bpe-rs, so a replacement that returns a different answer isn't an "improvement" — it's incompatibility. That ordering of priorities is consistent throughout.
 
+**Update**: items 1 and 3 below (the two sites that are bpe-rs *behavior*, not a C-side build flag) are no longer unconditional. bpe-rs added a `strict_c_compat` switch — on by default, matching C bit-for-bit exactly as described below — with a `--precision-fixes` CLI flag to opt into the corrected/more-precise alternative instead. Everything below describes the default (`strict_c_compat = true`); it's what `verify/run_compat.sh` exercises, since it never passes the flag.
+
 For the detailed root-cause analysis and fix for each item, see the corresponding section of [INVESTIGATION_LOG.md](INVESTIGATION_LOG.md).
 
 ## 1. Inverse DWT (float) pairwise addition order (INVESTIGATION_LOG.md §3.3)
 
 - **C's behavior**: in expressions like `0.0406894 * (x[r_idx+1] + x[r_idx-1])` in `inversef97f`, C's "usual arithmetic conversions" apply per-operator, not to the whole expression. So the addition inside the parentheses (both operands `float`) happens **in single precision first**, and only promotes to double precision once multiplied by the unsuffixed (`double`) coefficient.
 - **The mathematically "better" alternative**: converting each addend to `f64` before adding (`f(x[r_idx+1]) + f(x[r_idx-1])`) is more precise, since no rounding error is introduced at the addition step.
-- **What was chosen**: bpe-rs originally used this more precise order, which produced a rare 1-ULP difference from C (up to 5 of 28 rate values on noise_256). It was **deliberately changed** to match C's order — add in f32, then promote.
-- **Trade-off**: mathematical precision was traded away for byte-exact agreement with C.
+- **What was chosen**: bpe-rs originally used this more precise order, which produced a rare 1-ULP difference from C (up to 5 of 28 rate values on noise_256). It was **deliberately changed** to match C's order — add in f32, then promote — and that's still the default. A `strict_c_compat` flag (`--precision-fixes` on the CLI) now makes the more-precise f64-accumulation order available again, for use when C interop isn't a goal.
+- **Trade-off**: mathematical precision is traded away for byte-exact agreement with C by default; `--precision-fixes` trades that agreement back for precision.
 
 ## 2. Disabling FMA (fused multiply-add) contraction — `-ffp-contract=off` (INVESTIGATION_LOG.md §3.10)
 
@@ -26,8 +28,8 @@ A two-stage integer overflow that only manifests at DC depth N=16.
 
 - **`-(short)(...)` truncation**: before negating, C narrows the intermediate value to a 16-bit `short`. When that intermediate value is exactly 32768, the `short` cast wraps 32768 → −32768, so the negated value becomes +32768 instead of the mathematically correct −32768.
 - **Unsigned wraparound in `theta`**: once `ShiftedDC` is pushed out of range by the above, the subtraction between C's unsigned `DWORD32` values wraps around, and the `min()` macro ends up comparing against an unintended huge value instead of a negative one.
-- **What was chosen**: bpe-rs uses `wrapping_sub` to explicitly reproduce this wraparound behavior via `neg_short`/`theta_from_prev` helpers.
-- **Trade-off**: not floating-point precision per se, but the same structural choice — "the numerically correct result" was passed over in favor of "the same result as C's overflow bug."
+- **What was chosen**: bpe-rs uses `wrapping_sub` to explicitly reproduce this wraparound behavior via `neg_short`/`theta_from_prev` helpers, gated by the same `strict_c_compat` switch as item 1 (default on; `--precision-fixes` switches to plain signed arithmetic instead).
+- **Trade-off**: not floating-point precision per se, but the same structural choice — "the numerically correct result" is passed over by default in favor of "the same result as C's overflow bug." Unlike item 1, this one also changes what gets written to the bitstream (the mapped value is Rice-coded directly), so `--precision-fixes` here means the encoder and decoder no longer produce a format any C-side tool can read, not just a differently-rounded pixel value.
 
 ## 4. The `TypeC<<(1<<(3-i))` typo (`BPEBlockCoding.c`, INVESTIGATION_LOG.md §4)
 
@@ -42,4 +44,4 @@ A two-stage integer overflow that only manifests at DC depth N=16.
 
 ## Summary
 
-Items 1 and 2 are floating-point rounding/operation-order trade-offs, item 3 is reproducing integer overflow, and item 4 is letting an obvious C typo stand. What they share: whenever "a more accurate computation" would mean "a different answer than C," this project has consistently chosen the latter — matching C. As stated in the scope definition at the top of [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md), since the goal is to replace the reference implementation, that ordering of priorities is deliberate.
+Items 1 and 2 are floating-point rounding/operation-order trade-offs, item 3 is reproducing integer overflow, and item 4 is letting an obvious C typo stand. What they share: whenever "a more accurate computation" would mean "a different answer than C," this project has consistently chosen the latter — matching C, by default. As stated in the scope definition at the top of [COMPATIBILITY_REPORT.md](COMPATIBILITY_REPORT.md), since the goal is to replace the reference implementation, that ordering of priorities is deliberate; items 1 and 3 are opt-out (`--precision-fixes`) for callers who value precision over C interop more than compatibility.
